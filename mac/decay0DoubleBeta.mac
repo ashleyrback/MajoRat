@@ -1,0 +1,47 @@
+#  File:        decay0DoubleBeta.mac
+#  Process:     double beta
+#
+#  Date:        21/01/2014
+#  Contact:     Ashley Back <ab571@sussex.ac.uk>
+#  Revisions:   21/01/2014, Ashley Back, New File
+#
+#       Simulates double beta events, using decay0, in the av
+#
+
+# Don't care about hadrons or muons so quicker not to initialise these processes
+/PhysicsList/OmitMuonicProcesses true
+/PhysicsList/OmitHadronicProcesses true
+
+/run/initialize
+
+##########EVENT LOOP##########
+/rat/proc frontend
+/rat/proc trigger
+/rat/proc eventbuilder
+/rat/proc count
+/rat/procset update 10
+/rat/proclast outroot
+
+# Output filename format "RATX-Y_NEVENTS_GENERATOR_TYPE_ISOTOPE_LEVEL_MODE_ELO_EHI.root"
+# e.g. RAT4-5_1k_decay0_2beta_Te130_0_4_0-0_3-5.root
+#/rat/procset file "RAT4-5_1k_decay0_2beta_Te130_0_4_0-0_3-5.root"
+##########EVENT LOOP##########
+
+# Use the decay0 generator to generate vertices in the normal combo generator
+#/generator/add combo decay0:fill
+
+# Set vertex:
+# /generator/vtx/set 2beta [ISOTOPE] [LEVEL] [MODE] [LoELim] [HiELim] 
+# e.g. /generator/vtx/set 2beta Te130 0 4 0.0 3.5 // Energy limits in MeV
+#/generator/vtx/set 2beta Te130 0 4 0.0 3.5
+
+# For fill option specify point in scintillator to generate events isotropically
+/generator/pos/set 0 0 0
+
+# poisson event rate of 1Hz
+/generator/rate/set 1
+
+# generate 100 events
+#/rat/run/start 1000
+
+exit
