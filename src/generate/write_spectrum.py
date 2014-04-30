@@ -4,8 +4,12 @@
 #
 # Produce histogram of spectrum from Rat generated root file
 #
-# Author A R Back - 31/01/2014 <ab571@sussex.ac.uk> : First revision
-###############################################################################
+# Author A R Back 
+#
+# 31/01/2014 <ab571@sussex.ac.uk> : First revision
+# 29/04/2014 <ab571@sussex.ac.uk> : Now initialised with half life, as in
+#                                   base class
+###########################################################################
 from ROOT import TFile
 
 import rat
@@ -17,9 +21,9 @@ class WriteSpectrum(SpectrumData):
     RAT generated Root file. Alows for easy generation of histograms, which
     are then saved to a new Root file.
     """
-    def __init__(self, path):
+    def __init__(self, path, t_half):
         """ Initialises the class, extracts information from filename """
-        super(WriteSpectrum, self).__init__(path)
+        super(WriteSpectrum, self).__init__(path, t_half)
 
     def write_histogram(self, prefix):
         """ Writes the histogram that has been created to a separate Root file

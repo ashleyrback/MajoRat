@@ -4,47 +4,31 @@
 #
 # Containers for spectrum data
 #
-# Author A R Back - 31/01/2014 <ab571@sussex.ac.uk> : First revision
-#        A R Back - 20/02/2014 <ab571@sussex.ac.uk> : Updated __init__, more
-#                                                     info extracted from
-#                                                     filename. Updated 
-#                                                     get_histogram, can be 
-#                                                     obtained from root file.   
+# Author A R Back 
+#
+# 31/01/2014 <ab571@sussex.ac.uk> : First revision
+# 20/02/2014 <ab571@sussex.ac.uk> : Updated __init__, more info extracted 
+#                                   from filename. Updated get_histogram,
+#                                   can be obtained from root file.
+# 29/04/2014 <ab571@sussex.ac.uk> : Now initialised with half life - for
+#                                   limit setting  
 ###############################################################################
 from ROOT import TH1D
 
 import rat
 
+import isotope
+import constants
 import file_manips
 import list_manips
-from detector_parameters import mass_Te_in_FV
-from detector_parameters import number_Te
-from detector_parameters import n_decays
+import spectrum_utils
 
 import re
 import inspect
 
-mode_to_index = {1:0, 4:5, 5:1, 6:2, 7:3, 8:7}
-
-spectrum_label = {0 : "0#nu#beta#beta",
-                  1 : "0#nu#beta#beta#chi^{0} (n=1)",
-                  2 : "0#nu#beta#beta#chi^{0} 'bulk' (n=2)",
-                  3 : "0#nu#beta#beta#chi^{0}(#chi^{0}) (n=3)",
-                  5 : "2#nu#beta#beta (n=5)",
-                  7 : "0#nu#beta#beta#chi^{0}#chi^{0} (n=7)"}
-
-number_Te = number_Te(mass_Te_in_FV(0.003, 4.0))
-
-half_lives = {0 : 5.0e25,
-              1 : 3.0e24,
-              2 : 1.0e24,
-              3 : 5.0e23,
-              5 : 1.0e21,
-              7 : 1.0e22}
-
 class SpectrumData(object):
     """ Base class, provides containers for spectrum data. """
-    def __init__(self, path):
+    def __init__(self, path, t_half):
         """ Initialise the container. Parameters are obtained from the
         filename in the path supplied. Files are assumed to be in the 
         form:
@@ -53,6 +37,9 @@ class SpectrumData(object):
         must be root files and specify RAT[version], [N_Evts], 
         [generator] and [mode], defaults will be applied for the other
         options.
+        The class should be initialised with a half-life as well,
+        instead of getting it from the spectral index, half life 
+        dictionary.
         """
         self._path = path
         self._dir, self._filename = file_manips.cut_path(path)
@@ -95,7 +82,10 @@ class SpectrumData(object):
             if re.search("[a-zA-Z]+", option):
                 self._type = option
                 option = i_opt.next()
-                self._isotope = option
+                if option == "Te130": # Assume we want SNO+ specific instance
+                    self._isotope = isotope.SNOPlusTe(option)
+                else: # Create standard Isotope instance
+                    self._isotope = isotope.Isotope(option)
                 option = i_opt.next()
                 self._level = int(option)
                 option = i_opt.next()
@@ -111,7 +101,7 @@ class SpectrumData(object):
                     self._options_set = True
             elif re.search("[0-9]+", option):
                 self._type = "2beta" # default
-                self._isotope = "Te130" #default
+                self._isotope = isotope.SNOPlusTe("Te130") #default
                 self._level = 0 #default
                 self._mode = int(option)
                 option = i_opt.next()
@@ -128,15 +118,15 @@ class SpectrumData(object):
                                                  "object,\n --> filename has "
                                                  "incorrect fortmat.")
         
-        self._spectral_index = mode_to_index.get(self._mode)
-        self._label = spectrum_label.get(self._spectral_index)
+        self._spectral_index = spectrum_utils.get_spectral_index(self._mode)
+        self._label = spectrum_utils.get_label(self._spectral_index)
         self._histogram = None
-        self._t_half = half_lives.get(self._spectral_index)
-        self._events = n_decays(self._t_half, number_Te)
-
+        self._events = None
+        self._t_half = t_half
     def get_histogram(self):
         """ Accesses the DS, reads particle MC Truth energies and sums. 
-        Histograms summed KE to produce an energy spectrum. Returns histogram.
+        Histograms summed KE to produce an energy spectrum. Returns 
+        histogram.
         """
         if self._histogram == None:
             if (self._prefix.find("hist_") >= 0):
@@ -144,6 +134,7 @@ class SpectrumData(object):
                 self._histogram = input_file.Get(self._label+"-Truth")
                 print "hist = ", self._histogram
                 self._histogram.SetDirectory(0)
+                input_file.close()
             else:
                 self._histogram = TH1D(self._label+"-Truth", self._label+"-Truth",
                                        30, 0.0, 3.0)
@@ -156,11 +147,30 @@ class SpectrumData(object):
                             if (mc.GetMCParticle(particle).GetPDGCode() == 11):
                                 KE += mc.GetMCParticle(particle).GetKE()
                         self._histogram.Fill(KE)
-                self._histogram.Scale(self._events/self._histogram.Integral())
         else:
             print ("SpectrumData.get_histogram: SpectrumData._histogram object"
                    "already exists\n --> re-using!")
         return self._histogram
+    def scale_histogram(self):
+        """ Scaling is not done automatically in the constructor. This
+        method scales the histogram according to the number of events,
+        which is calculated from the half life.
+        """
+        if self._events == None:
+            if isinstance(self._isotope, isotope.SNOPlusTe):
+                self._events = self._isotope.get_number_decays\
+                    (self._t_half, self._isotope.get_number_nuclei\
+                         (constants.snoplus.get("fv_radius")))
+            else:
+                self._events = self._isotope.get_number_decays\
+                    (self._t_half, self._isotope.get_number_nuclei\
+                         (constants.isotope_mass.get(self._name)))
+        else:
+            if self._histogram == None:
+                self._histogram == get_histogram
+            else:
+                self._histogram.Scale(self._events/self._histogram.Integral())
+            
 
 ################################################################################
 if __name__ == "__main__":
@@ -178,7 +188,10 @@ if __name__ == "__main__":
     print args
     print args.root_file
 
-    spectrum = SpectrumData(args.root_file)
+    t_half = 5.0e25 # years # KLZ limit from Gando et al.
+
+    spectrum = SpectrumData(args.root_file, t_half)
+    spectrum.scale_histogram()
     histogram = spectrum.get_histogram()
     histogram.Draw()
     raw_input("RETURN to exit")

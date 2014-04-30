@@ -5,10 +5,12 @@
 # Script to run a rat macro with command line arguments, based on a template
 # macro
 #
-# Author A R Back - 31/01/2014 <ab571@sussex.ac.uk> : First revision
-#        A R Back - 21/03/2014 <ab571@sussex.ac.uk> : Added inheritance from 
-#                                                     SpectrumData class
-###############################################################################
+# Author A R Back 
+# 31/01/2014 <ab571@sussex.ac.uk> : First revision
+# 21/03/2014 <ab571@sussex.ac.uk> : Added inheritance from SpectrumData 
+#                                   class
+###########################################################################
+from memory_profiler import profile
 from spectrum_data import SpectrumData
 import file_manips
 import re
@@ -21,6 +23,7 @@ class GenerateSpectrum(SpectrumData):
     """ Class to generate RAT montecarlo for use with other scripts that
     inherit from the SpectrumData class.
     """
+    @profile
     def __init__(self, path, template):
         """ Use __init__ method of SpectrumData class. GenerateSpectrum class is 
         initiated by supplying the full path to the root file that you wish to
@@ -28,12 +31,14 @@ class GenerateSpectrum(SpectrumData):
         """
         super(GenerateSpectrum, self).__init__(path)
         self._template = template
+    @profile
     def read_template(self):
         """ Reads lines from template macro. Returns lines in a list. """
         template_file = open(self._template)
         template = template_file.readlines()
         template_file.close()
         return template
+    @profile
     def edit_template(self, template):
         """ Edits template macro based on parameters from the Root filename
         used to initialise the class.
@@ -74,6 +79,7 @@ class GenerateSpectrum(SpectrumData):
                     line = new_line
             macro.append(line)
         return macro
+    @profile
     def write_macro(self, macro, mac_dir=""):
         """ Writes macro based on edited macro template """
         if (mac_dir == ""):
@@ -84,6 +90,7 @@ class GenerateSpectrum(SpectrumData):
         for line in macro:
             mac_file.write(line)
         mac_file.close()
+    @profile
     def run_rat(self):
         """ Runs rat using the macro created in write_macro """
         try:
@@ -101,6 +108,7 @@ class GenerateSpectrum(SpectrumData):
             print "GenerateSpectrum.run_rat: error", detail, "not set"
             print " --> source correct environment scripts before running!"
             sys.exit(1)
+    @profile
     def clean_up(self):
         """ Move DQ outputs to their appropriate directory """
         try:
