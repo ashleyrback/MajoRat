@@ -4,9 +4,14 @@
 #
 # Produce histogram of spectrum from Rat generated root file
 #
-# Author A R Back - 31/01/2014 <ab571@sussex.ac.uk> : First revision
-###############################################################################
+# Author A R Back 
+#
+# 31/01/2014 <ab571@sussex.ac.uk> : First revision
+# 29/04/2014 <ab571@sussex.ac.uk> : Now initialised with half life, as in
+#                                   base class
+###########################################################################
 from ROOT import TFile
+from ROOT import TObject
 
 import rat
 
@@ -17,21 +22,25 @@ class WriteSpectrum(SpectrumData):
     RAT generated Root file. Alows for easy generation of histograms, which
     are then saved to a new Root file.
     """
-    def __init__(self, path):
+    def __init__(self, path, t_half):
         """ Initialises the class, extracts information from filename """
-        super(WriteSpectrum, self).__init__(path)
+        super(WriteSpectrum, self).__init__(path, t_half)
 
-    def write_histogram(self, prefix):
-        """ Writes the histogram that has been created to a separate Root file
+    def write_histogram(self, prefix="hist_"):
+        """ Writes the histogram that has been created to a separate Root 
+        file prefixed with "hist_"
         """
         assert (self._histogram != None), ("GetSpectrum.write_histogram: "
                                            "histogram needs to be defined "
                                            "before it can be \nwritten to file")
-        filename = prefix + self._filename
+        if self._prefix == "":
+            filename = prefix + self._filename
+        else:
+            filename = self._filename
         path = self._dir + filename
-        output_file = TFile(path, "RECREATE")
+        output_file = TFile(path, "UPDATE")
         output_file.cd()
-        self._histogram.Write()
+        self._histogram.Write("", TObject.kOverwrite)
         output_file.Write()
         output_file.ls()
         output_file.Close()

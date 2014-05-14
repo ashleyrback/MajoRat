@@ -4,13 +4,14 @@
 #
 # Back-of-the-envelope-style calculations of expected signals
 #
-# Author A R Back - 12/02/2014 <ab571@sussex.ac.uk> : First revision
-###############################################################################
+# Author A R Back
+#  
+# 12/02/2014 <ab571@sussex.ac.uk> : First revision
+###########################################################################
 from ROOT import TH1D
 
 from spectrum_data import SpectrumData
 from reconstructed import Reconstructed
-
 
 class SignalEstimates(SpectrumData):
     """ Derived class, adapts spectrum data class for looking at estimated 
@@ -64,6 +65,7 @@ if __name__ == "__main__":
     from statistics import log_likelihood
 
     import math
+    import os
     
     def my_range(start, end, step):
         while start <= end:
@@ -76,7 +78,12 @@ if __name__ == "__main__":
                  "hist_RAT4-5_1k_decay0_2beta_Te130_0_6_ELT3-5.root",
                  "hist_RAT4-5_1k_decay0_2beta_Te130_0_7_ELT3-5.root",
                  "hist_RAT4-5_1k_decay0_2beta_Te130_0_8_ELT3-5.root"]
-    data_directory = "/home/ashley/snoplus/data/"
+    try:
+        data_directory = os.environ["MAJORAT_DATA"]
+    except KeyError as detail:
+        print "signal_estimates.py:83: error", detail, "not set"
+        print " --> source the MajoRat/env.sh before running!"
+
     filepath = data_directory + filenames[0]
     zero_nu = SignalEstimates(filepath)
     filepath = data_directory + filenames[1]
