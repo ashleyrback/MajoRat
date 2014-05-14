@@ -11,6 +11,7 @@
 #                                   base class
 ###########################################################################
 from ROOT import TFile
+from ROOT import TObject
 
 import rat
 
@@ -25,17 +26,21 @@ class WriteSpectrum(SpectrumData):
         """ Initialises the class, extracts information from filename """
         super(WriteSpectrum, self).__init__(path, t_half)
 
-    def write_histogram(self, prefix):
-        """ Writes the histogram that has been created to a separate Root file
+    def write_histogram(self, prefix="hist_"):
+        """ Writes the histogram that has been created to a separate Root 
+        file prefixed with "hist_"
         """
         assert (self._histogram != None), ("GetSpectrum.write_histogram: "
                                            "histogram needs to be defined "
                                            "before it can be \nwritten to file")
-        filename = prefix + self._filename
+        if self._prefix == "":
+            filename = prefix + self._filename
+        else:
+            filename = self._filename
         path = self._dir + filename
-        output_file = TFile(path, "RECREATE")
+        output_file = TFile(path, "UPDATE")
         output_file.cd()
-        self._histogram.Write()
+        self._histogram.Write("", TObject.kOverwrite)
         output_file.Write()
         output_file.ls()
         output_file.Close()

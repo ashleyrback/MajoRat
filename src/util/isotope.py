@@ -12,8 +12,11 @@
 # 
 # 27/04/2014 <ab571@sussex.ac.uk> : First revision 
 #                                   (previously detector_parameters.py)
+# 09/05/2014 <ab571@sussex.ac.uk> : Added get_decays_from_mass method and 
+#                                   modified get_decays_from_t_half method
 ###############################################################################
 import constants
+import physics
 
 import math
 import sys
@@ -25,6 +28,7 @@ class Isotope(object):
     def __init__(self, isotope_name):
         """ Initialise class based on the name of the isotope """
         self._name = isotope_name
+        self._zero_nu_converter = physics.ZeroNuConverter(self._name)
     def get_number_nuclei(self, isotope_mass):
         """ Returns the number of isotope for a given mass (kg) """
         try:
@@ -37,11 +41,25 @@ class Isotope(object):
         isotope_mass *= 1e3 # convert mass to grams
         number_nuclei = (isotope_mass*constants.n_avagadro)/atomic_weight
         return number_nuclei
-    def get_number_decays(self, t_half, number_nuclei):
+    def get_decays_from_t_half(self, t_half, number_nuclei, livetime=1.0):
         """ Returns the number of decays (per year) for a given half life
-        (in years) and number of nuclei
+        (in years) and number of nuclei. Livetime 1 year by default.
         """
-        number_decays = (math.log(2)*number_nuclei)/t_half
+        try:
+            decay_rate = math.log(2)/t_half
+        except ZeroDivisionError as detail:
+            print "Isotope.get_number_of_decays: WARNING", detail
+            t_half = self._zero_nu_converter.get_t_half_min()
+            decay_rate = math.log(2)/t_half
+        number_decays = decay_rate*number_nuclei*livetime
+        return number_decays
+    def get_decays_from_mass(self, effective_mass, number_nuclei, livetime=1.0):
+        """ Returns the number of decays (per year) for a given effective
+        mass (in eV) and number of nuclei. Livetime 1 year by default.
+        """
+        decay_rate = math.log(2)*math.pow\
+            (effective_mass/self._zero_nu_converter.get_conversion_factor(), 2)
+        number_decays = decay_rate*number_nuclei*livetime
         return number_decays
 
 ### SNO+ SPECIFIC #############################################################

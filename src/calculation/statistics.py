@@ -4,17 +4,19 @@
 #
 # Some useful statistical methods
 #
-# Author A R Back - 14/02/2014 <ab571@sussex.ac.uk> : First revision
-###############################################################################
+# Author A R Back
+#
+# 14/02/2014 <ab571@sussex.ac.uk> : First revision
+# 30/04/2014 <ab571@sussex.ac.uk> : Added sum_ll method
+###########################################################################
 import math
 
-def log_likelihood(mc, data):
+def log_likelihood(data, mc):
     """ Returns the value of the log likelihood function for a given
     number of MC events and a given number of data events
     """
     try:
         ll = -2*(mc - data + data*math.log(data/mc))
-        print ll
     except ZeroDivisionError as detail:
         ll = 0.0
         print ("statistics.log_likelihood: runtime error:\n",
@@ -24,10 +26,24 @@ def log_likelihood(mc, data):
         print ("statistics.log_likelihood: runtime error:\n",
                detail)
     return ll
-def sum_delta_LL(self, sig, bkg):
+def sum_ll(data_hist, mc_hist):
+    """ Returns the summed log-likelihood for a given data spectrum,
+    compared to a mc spectrum. "Data" should be a spectrum where T_half is
+    unknown (i.e. cycling through), "mc" should be the spectrum where you 
+    know T_half (fixed)
+    """
+    assert (data_hist.GetNbinsX() == mc_hist.GetNbinsX()), \
+        "Signal and background histograms differ in N_bins"
+    ll_signal_sum = 0.0
+    for n_bin in range(1, data_hist.GetNbinsX()):
+        energy = data_hist.GetBinLowEdge(n_bin)
+        data_events = data_hist.GetBinContent(n_bin)
+        mc_events = mc_hist.GetBinContent(n_bin)
+        ll_signal = math.fabs(log_likelihood(data_events, mc_events))
+        ll_signal_sum += ll_signal
+    return ll_signal_sum
+def sum_delta_ll(sig_hist, bkg_hist):
     """ Method to return the summed delta log-likelihood (ll) """
-    sig_hist = sig.get_histogram()
-    bkg_hist = bkg.get_histogram()
     assert (sig_hist.GetNbinsX() == bkg_hist.GetNbinsX()), \
         "Signal and background histograms differ in N_bins"
     delta_ll_total = 0.0
