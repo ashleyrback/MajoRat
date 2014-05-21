@@ -80,6 +80,6 @@ half_life = {
 
 ### SNO+ detector ###
 snoplus = { 
-    "fv_radius" : 4.0, # Assumong 4.0 m FV
+    "fv_radius" : 4.0, # Assuming 4.0 m FV
     "energy_resolution" : 200.0, # NHit per MeV
     }
