@@ -37,6 +37,8 @@ import generators
 
 import re
 import inspect
+import os
+import unittest
 
 class SpectrumData(object):
     """ Base class, provides containers for spectrum data. """
@@ -65,9 +67,11 @@ class SpectrumData(object):
         :type t_half: float
         """
         self._path = path
-        self._dir, self._filename = file_manips.cut_path(path)
-        self._name = file_manips.strip_ext(self._filename)
-        self._prefix = None
+        print self._path
+        self._dir, self._filename = file_manips.split_path(path)
+        self._name, self._ext = file_manips.split_ext(self._filename)
+        self._options = None
+        self._prefix = ""
         self._rat_release = None
         self._n_events = None
         self._generator = None
@@ -79,12 +83,13 @@ class SpectrumData(object):
                 # Assume filename is in MajoRat format
                 # call set_parameters_from_filename by default
                 self.set_parameters_from_filename(options)
+        else:
+            self._options = options
         self._histogram = None
         self._unscaled_histogram = None
         self._events = None
         self._t_half = t_half
     def set_parameters_from_filename(self, options):
-        self._prefix = ""
         for item in options[:list_manips.item_containing("RAT", options)]:
             self._prefix += item + "_"
         main_options = options[list_manips.item_containing("RAT", options):]
@@ -165,42 +170,116 @@ class SpectrumData(object):
             mode = float(temp_option_2)
             e_lo = float(option.next().replace("-","."))
             e_hi = float(option.next().replace("-","."))
-            self._generator = generators.TwoBeta(isotope_, mode, type_,
-                                                level, e_lo, e_hi)
+            self._generator = generators.TwoBeta(isotope_, mode, level,
+                                                 type_, e_lo, e_hi)
             self._spectral_index = spectrum_utils.get_spectral_index\
             (self._generator.get_mode())
             self._label = spectrum_utils.get_label(self._spectral_index)
-    def get_histogram(self):
-        """ Accesses the DS, reads particle MC Truth energies and sums. 
-        Histograms summed KE to produce an energy spectrum. Returns 
+    def make_histogram(self, append=False, 
+                       always_remake=False, 
+                       hist_path="default"):
+        """ Method to generate make histogram 
+        
+        :param append: if True adds to saved histogram
+        :type append: bool
+        :param always_remake: if True always fills new blank histogram
+        :type always_remake: bool
+        :param hist_path: specify alternative path to saved histograms
+        :type hist_path: str
+        """
+        try:
+            assert (not(append and always_remake)),\
+                "append and always_remake options cannot both be True"
+        except AssertionError as detail:
+            print "SpectrumData.make_histogram: ERROR", detail
+            raise
+        if (self._prefix.find("hist") >= 0):
+            input_file = TFile(self._path, "READ")
+            input_file.ls()
+            histogram = input_file.Get(self._label+"-Truth")
+            print "SpectrumData.make_histogram: found saved histogram " \
+                + self._label+"-Truth"
+            input_file.Close()
+        elif (always_remake):
+            histogram = self.get_blank_histogram()
+        else:
+            if (hist_path == "default"):
+                hist_path = self.get_default_hist_path()
+            else:
+                directory, file_ = file_manips.split_path(hist_path)
+                if (len(file_) <= 0): # Alternative directory only
+                    hist_path = directory + \
+                        file_manips.strip_path(self.get_default_hist_path())
+            try:
+                
+                input_file = TFile(hist_path, "READ")
+                input_file.ls()
+                histogram = input_file.Get(self._label)
+                assert (isinstance(histogram, TH1D)), \
+                    "no object " + self._label + " of type ROOT.TH1D, found "\
+                    "in file"
+            except AssertionError as detail:
+                print "SpectrumData.make_histogram:", detail
+                print " --> making new histogram"
+                histogram = self.get_blank_histogram()
+                always_remake = True # In this instance fill from scratch
+        self._histogram = histogram
+        assert isinstance(self._histogram, TH1D), \
+            "SpectrumData.make_histogram: self._histogram is not a TH1D object"
+        if (append != always_remake): # Exclusive or, can't have both True 
+            self.fill_histogram()
+        self._histogram.SetDirectory(0) # Stop ROOT memory managing
+        if (self._unscaled_histogram == None):
+            self._unscaled_histogram = self._histogram.Clone()
+            self._unscaled_histogram.SetDirectory(0)
+    def get_blank_histogram(self, no_label=False, bin_width=0.02):
+        """ Method to return a blank spectrum histogram to be filled.
+        
+        :param bin_width: supply a bin width (MeV)
+        :type bin_width: float
+        :returns: blank histogram
+        :rtype: ROOT.TH1D
+        """
+        lower = self._generator.get_e_lo()
+        upper = self._generator.get_e_hi()
+        n_bins = int((upper-lower) / bin_width)
+        if no_label:
+            histogram = TH1D("default_hist", "default_hist", n_bins, lower, upper)
+        else:
+            histogram = TH1D(self._label, self._label, n_bins, lower, upper)
+        return histogram
+    def get_default_hist_path(self):
+        """
+        :returns: file "hist_ ..." filename, where (if it exists)
+                  histograms would be saved.
+        :rtype: str
+        """
+        print "SD.GDHP: isinstance(self, unittest) =", isinstance(self, unittest.TestCase)
+        hist_path = os.environ.get("MAJORAT_DATA") + "/hist_" + self._name\
+            + self._ext
+        return str(hist_path)
+    def fill_histogram(self):
+        """ Method to read DS, extract total KE for each event and fill 
         histogram.
+        
+        """
+        for ds, run in rat.dsreader(self._path):
+            for iEV in range(0, ds.GetEVCount()):
+                mc = ds.GetMC();
+                KE = 0
+                for particle in range (0, mc.GetMCParticleCount()):
+                    # Check they are electrons
+                    if (mc.GetMCParticle(particle).GetPDGCode() == 11):
+                        KE += mc.GetMCParticle(particle).GetKE()
+                self._histogram.Fill(KE)
+    def get_histogram(self, always_recreate=False):
+        """ 
+        :returns: self._histogram (if None, calls make_histogram)
+        :rtype: ROOT.TH1D
         """
         if (self._histogram == None):
-            if (self._prefix.find("hist") >= 0):
-                input_file = TFile(self._path, "READ")
-                input_file.ls()
-                self._histogram = input_file.Get(self._label+"-Truth")
-                print "SpectrumData.get_histogram: found saved histogram " \
-                    + self._label+"-Truth"
-                self._histogram.SetDirectory(0)
-                input_file.Close()
-            else:
-                self._histogram = TH1D(self._label+"-Truth", self._label+"-Truth",
-                                       30, 0.0, 3.0)
-                for ds, run in rat.dsreader(self._path):
-                    for iEV in range(0, ds.GetEVCount()):
-                        mc = ds.GetMC();
-                        KE = 0
-                        for particle in range (0, mc.GetMCParticleCount()):
-                            # Check they are electrons
-                            if (mc.GetMCParticle(particle).GetPDGCode() == 11):
-                                KE += mc.GetMCParticle(particle).GetKE()
-                        self._histogram.Fill(KE)
-            if (self._unscaled_histogram == None):
-                self._unscaled_histogram = self._histogram.Clone()
-        else:
-            print ("SpectrumData.get_histogram: SpectrumData._histogram object "
-                   "already exists\n --> re-using!")
+            append=False
+            self.make_histogram(append, always_recreate)
         return self._histogram
     def get_number_nuclei(self):
         """ Method to return the number of nuclei. The calculation of
@@ -265,6 +344,7 @@ class SpectrumData(object):
         which is calculated from the half life. By default self._t_half
         is used unless an alternative half life is supplied. 
         """
+        print "SpectrumData.scale_by_mass"
         if (self._histogram == None):
             self._histogram = self.get_histogram()
         self.set_events_by_mass(effective_mass)

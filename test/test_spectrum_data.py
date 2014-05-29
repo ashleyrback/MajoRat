@@ -55,7 +55,8 @@ class TestSpectrumData(unittest.TestCase):
     def test_get_histogram(self):
         self.assertIsNone(self._spectrum._histogram)
         self.assertIsNone(self._spectrum._unscaled_histogram)
-        hist = self._spectrum.get_histogram()
+        always_recreate=True
+        hist = self._spectrum.get_histogram(always_recreate)
         self.assertIsInstance(hist, ROOT.TH1D)
         self.assertEqual(hist.Integral(), 1021)
         self.assertIsInstance(self._spectrum._unscaled_histogram, ROOT.TH1D)
@@ -85,8 +86,8 @@ class TestSpectrumData(unittest.TestCase):
                          15.457986878334248)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_t_half(0)
-        self.assertEqual(self._spectrum._histogram.Integral(), 
-                         1.294751466538353e+16)
+        self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e+16, 
+                         1.294751466538353, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_t_half()
         self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
@@ -98,12 +99,43 @@ class TestSpectrumData(unittest.TestCase):
                          4.431789725182429)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_mass(0)
-        self.assertEqual(self._spectrum._histogram.Integral(), 1.2947514665383531e-5)
+        self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e-5,
+                               1.2947514665383531, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_mass(0.05)
         self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
                          4.431789725182429, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
+    def tearDown(self):
+        pass
+class TestSpectrumData2Beta(unittest.TestCase):
+    def setUp(self):
+        self._spectrum = SpectrumData(path, 5.0e25)
+    def test_rat_release(self):
+        self.assertEqual(self._spectrum._rat_release, "RAT4.5")
+    def test_n_events(self):
+        self.assertEqual(self._spectrum._n_events, 1e3)
+    def test_generator(self):
+        self.assertEqual(self._spectrum._generator.get_generator(), "decay0")
+    def test_type(self):
+        self.assertEqual(self._spectrum._generator.get_type(), "2beta")
+    def test_isotope(self):
+        self.assertIsInstance(self._spectrum._generator.get_isotope(),
+                              isotope.SNOPlusTe)
+        self.assertEqual(self._spectrum._generator.get_isotope().get_name(),
+                         "Te130")
+    def test_level(self):
+        self.assertEqual(self._spectrum._generator.get_level(), 0)
+    def test_mode(self):
+        self.assertEqual(self._spectrum._generator.get_mode(), 1)
+    def test_e_low(self):
+        self.assertEqual(self._spectrum._generator.get_e_lo(), 0.0)
+    def test_e_high(self):
+        self.assertEqual(self._spectrum._generator.get_e_hi(), 3.5)
+    def test_spectral_index(self):
+        self.assertEqual(self._spectrum._spectral_index, 0)
+    def test_label(self):
+        self.assertEqual(self._spectrum._label, "0#nu#beta#beta")
     def tearDown(self):
         pass
 class TestSpectrumDataSolar(unittest.TestCase):
@@ -131,7 +163,7 @@ class TestSpectrumDataSolar(unittest.TestCase):
         pass
 class TestSpectrumDataDecayChain(unittest.TestCase):
     def setUp(self):
-        self._spectrum = SpectrumData("RAT4-5_1k_decaychain_Pb214.root")
+        self._spectrum = SpectrumData("RAT4-5_1k_decaychain_Rh102.root")
     def test_rat_release(self):
         self.assertEqual(self._spectrum._rat_release, "RAT4.5")
     def test_n_events(self):
@@ -141,7 +173,7 @@ class TestSpectrumDataDecayChain(unittest.TestCase):
     def test_type(self):
         self.assertIsNone(self._spectrum._generator.get_type())
     def test_isotope(self):
-        self.assertEqual(self._spectrum._generator.get_isotope(), "Pb214")
+        self.assertEqual(self._spectrum._generator.get_isotope(), "Rh102")
     def test_e_low(self):
         self.assertEqual(self._spectrum._generator.get_e_lo(), 0.0)
     def test_e_high(self):
@@ -149,7 +181,7 @@ class TestSpectrumDataDecayChain(unittest.TestCase):
     def test_spectral_index(self):
         self.assertIsNone(self._spectrum._spectral_index)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "Pb214")
+        self.assertEqual(self._spectrum._label, "Rh102")
     def tearDown(self):
         pass
 class TestSpectrumDataBackg(unittest.TestCase):
@@ -188,6 +220,8 @@ class TestSpectrumDataNonMajoRatFile(unittest.TestCase):
         self.assertIsNone(self._spectrum._spectral_index)
     def test_label(self):
         self.assertIsNone(self._spectrum._label)
+    def test_options(self):
+        self.assertIsNotNone(self._spectrum._options)
     def tearDown(self):
         pass
 

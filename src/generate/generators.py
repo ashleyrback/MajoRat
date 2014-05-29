@@ -122,8 +122,8 @@ class Backg(Decay0):
         self._type = type_
 class TwoBeta(Decay0):
     """ Derived class for handling backg generator """
-    def __init__(self, isotope_, mode, type_="2beta", 
-                 level=0, e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, mode, level=0,
+                 type_="2beta", e_lo=0.0, e_hi=3.5):
         """ Initialise TwoBeta class.
         
         :param isotope_: isotope object

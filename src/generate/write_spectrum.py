@@ -16,29 +16,32 @@ from ROOT import TObject
 import rat
 
 from spectrum_data import SpectrumData
+import file_manips
 
 class WriteSpectrum(SpectrumData):
     """ Derived class, special case of SpectrumData, for first analysis of 
     RAT generated Root file. Alows for easy generation of histograms, which
     are then saved to a new Root file.
     """
-    def __init__(self, path, t_half):
+    def __init__(self, path, t_half=None):
         """ Initialises the class, extracts information from filename """
         super(WriteSpectrum, self).__init__(path, t_half)
 
-    def write_histogram(self, prefix="hist_"):
+    def write_histogram(self, hist_path="default"):
         """ Writes the histogram that has been created to a separate Root 
         file prefixed with "hist_"
         """
         assert (self._histogram != None), ("GetSpectrum.write_histogram: "
                                            "histogram needs to be defined "
                                            "before it can be \nwritten to file")
-        if self._prefix == "":
-            filename = prefix + self._filename
+        if (hist_path == "default"):
+            hist_path = self.get_default_hist_path()
         else:
-            filename = self._filename
-        path = self._dir + filename
-        output_file = TFile(path, "UPDATE")
+            directory, file_ = file_manips.split_path(hist_path)
+            if (len(file_) <= 0): # Alternative directory only
+                hist_path = directory + \
+                    file_manips.strip_path(self.get_default_hist_path())
+        output_file = TFile(hist_path, "UPDATE")
         output_file.cd()
         self._histogram.Write("", TObject.kOverwrite)
         output_file.Write()
