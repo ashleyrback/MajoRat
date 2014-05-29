@@ -9,10 +9,13 @@
 # 05/05/2014 <ab571@sussex.ac.uk> : First revision
 # 09/05/2014 <ab571@sussex.ac.uk> : Modified error handling in conversion
 #                                   methods and added some get methods
+# 21/05/2014 <ab571@sussex.ac.uk> : Valid range for half life and 
+#                                   corresponding effective mass.
 ###########################################################################
 import constants
 
 import math
+import sys
 
 class DoubleBeta(object):
     """ Base class designed as a utility to handle an isotope's double beta
@@ -34,13 +37,16 @@ class ZeroNuConverter(object):
     different isotope properties, e.g. converting from lifetime to 
     effective double beta neutrino mass, or vice versa.
     """
-    def __init__(self, isotope="Te130"):
+    def __init__(self, isotope="Te130",
+                 t_half_min_scaling=1.0e-6,  # Assumed lower limit 10^-6 * 2nu
+                 t_half_max_scaling=1.0e15): # Assumed upper limit 10^15 * 2nu
         """ Initialised for isotope name supplied (Te130 by default), with
         some useful nuclear factors and constants defined.
         """
         two_nu = DoubleBeta(isotope)
         self._two_nu_t_half = two_nu.get_half_life();
-        self._t_half_min = self._two_nu_t_half*1.0e-6 # Assumed lower limit
+        self._t_half_min = self._two_nu_t_half*t_half_min_scaling
+        self._t_half_max = self._two_nu_t_half*t_half_max_scaling
         self._phase_space = constants.phase_space.get(isotope).get("0nu")
         self._matrix_element = constants.matrix_element.get(isotope).get("0nu")
         self._coupling_constant = constants.coupling_constant
@@ -68,33 +74,52 @@ class ZeroNuConverter(object):
     def get_t_half_min(self):
         """ Method to get minimum half life. Returns t_half_min """
         return self._t_half_min
+    def get_t_half_max(self):
+        """ Method to get maximum half life. Returns t_half_max """
+        return self._t_half_max
+    def get_mass_min(self):
+        """ Method to get minimum effective mass. Returns mass_min """
+        return self.half_life_to_mass(self._t_half_max)
+    def get_mass_max(self):
+        """ Method to get maximum effective mass. Returns mass_max """
+        return self.half_life_to_mass(self._t_half_min)
     def half_life_to_mass(self, t_half):
         """ Method to convert half life (Yr) to OvBB effective mass. 
         Returns the effective neutrino mass in eV.
         """
         if (self._conversion_factor == None):
             self.set_conversion_factor()
+        if (t_half < self.get_t_half_min()):
+            t_half = self.get_t_half_min()
+        if (t_half > self.get_t_half_max()):
+            t_half = self.get_t_half_max()
         try:
-            assert (t_half > self._t_half_min),\
-                "half life is less than 1.0e-6*two_nu_t_half"
+            assert (self.get_t_half_min() <= t_half <= self.get_t_half_max()),\
+                "half life does not fall within the accepted range"
         except AssertionError as detail:
-            print "ZeroNuConverter.half_life_to_mass: WARNING", detail
-            t_half = self._t_half_min
-            print " --> setting half life to t_half_min", self._t_half_min
+            print "ZeroNuConverter.half_life_to_mass: ERROR", detail
+            print " --> cannont convert to mass"
+            sys.exit(1)
         effective_mass = self._conversion_factor * math.sqrt(1.0/t_half)
         return effective_mass
-    def mass_to_half_life(self, effective_mass):
+    def mass_to_half_life(self, mass):
         """ Method to convert effective neutrino mass in eV to half life.
         Returns the half life (Yr)
         """
         if (self._conversion_factor == None):
             self.set_conversion_factor()
+        if (mass < self.get_mass_min()):
+            mass = self.get_mass_min()
+        if (mass > self.get_mass_max()):
+            mass = self.get_mass_max()
         try:
-            t_half = math.pow(self._conversion_factor/effective_mass, 2)
-        except ZeroDivisionError as detail:
-            print "ZeroNuConverter.half_life_to_mass: WARNING", detail
-            t_half = self._t_half_min
-            print " --> setting half life to t_half_min", self._t_half_min    
+            assert (self.get_mass_min() <= mass <= self.get_mass_max()),\
+                "effective mass does not fall within the accepted range"
+        except AssertionError as detail:
+            print "ZeroNuConverter.mass_to_half_life: ERROR", detail
+            print " --> cannont convert to half_life"
+            sys.exit(1)
+        t_half = math.pow(self._conversion_factor/mass, 2)
         return t_half
 
 if __name__ == "__main__":
@@ -112,9 +137,14 @@ if __name__ == "__main__":
         + str(te_effective_mass)
     print "Te130: 2nu half life = " + str(t_half_te_2nu)
 
-    # Experiment with zero limits
-    te_effective_mass = te_converter.half_life_to_mass(0.0)
-    t_half_te = te_converter.mass_to_half_life(0.0)
-    print "Te130: half life = " + str(t_half_te) + ", effective mass = "\
-        + str(te_effective_mass)
+    # Experiment with limits
+    effective_mass_max = te_converter.half_life_to_mass(0.0) # when t_half=0
+    t_half_min = te_converter.mass_to_half_life(effective_mass_max)
+    t_half_max = te_converter.mass_to_half_life(0.0) # when mass=0
+    effective_mass_min = te_converter.half_life_to_mass(t_half_max)
+    print "Te130: half life (min) = " + str(t_half_min) + ", effective mass (max) = "\
+        + str(effective_mass_max)
+    print "Te130: half life (max) = " + str(t_half_max) + ", effective mass (min) = "\
+        + str(effective_mass_min)
+
     

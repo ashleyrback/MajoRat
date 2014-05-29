@@ -9,29 +9,39 @@
 ###############################################################################
 import shutil
 
-def cut_path(path):
+def strip_path(path):
     """ When supplied a filepath, returns a substring that is the just the 
     filename.
+
+    :param path: full filepath
+    :type path: str
+    :returns: filename
+    :rtype: str
+    """
+    filename = path[path.rfind("/")+1:]
+    return filename
+def split_path(path):
+    """ When supplied a filepath, returns a tuple of directory and filename.
+
+    :param path: full filepath
+    :type path: str
+    :returns: directory, filename
+    :rtype: tuple
     """
     dir_ = path[:path.rfind("/")+1]
     filename = path[path.rfind("/")+1:]
     return (dir_, filename)
-
 def strip_ext(filename):
     """ Returns a filename without its file extension e.g. myFile.cc would
     return myFile
     """
-    s=filename
-    sub=s[:s.find(".")]
-    return sub
-
+    name = filename[:filename.find(".")]
+    return name
 def split_ext(filename):
     """ As strip_ext, but returns the filename and extension in a tuple """
-    s=filename
-    name=s[:s.find(".")]
-    ext=s[s.find("."):]
+    name = filename[:filename.find(".")]
+    ext = filename[filename.find("."):]
     return name, ext
-
 def copy_file(source, destination):
     try:
         shutil.move(source, destination)
