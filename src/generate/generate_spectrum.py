@@ -112,6 +112,7 @@ class GenerateSpectrum(SpectrumData):
     def clean_up(self):
         """ Move DQ outputs to their appropriate directory """
         try:
+            data_dir = os.environ["DATA"]
             plots_dir = os.environ["PLOTS"]
             logs_dir = os.environ["LOGS"]
         except KeyError as detail:
@@ -120,10 +121,13 @@ class GenerateSpectrum(SpectrumData):
             sys.exit(1)
         for root, dirs, files in os.walk(os.getcwd()):
             for file in files:
+                is_data = re.search(r".*\.root$", file)
                 is_plot = re.search(r".*\.png$", file)
                 hostname = socket.gethostname()
                 is_log =  re.search(r"^rat\."+hostname+r"\.[0-9]+\.log$", file)
-                if is_plot:
+                if is_data:
+                    file_manips.copy_file(os.path.join(root, file), data_dir)
+                elif is_plot:
                     file_manips.copy_file(os.path.join(root, file), plots_dir)
                 elif is_log:
                     file_manips.copy_file(os.path.join(root, file), logs_dir)

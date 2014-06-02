@@ -65,8 +65,11 @@ class Production(WriteSpectrum):
             isotope_name = None
         macro_name = ""
         next_option = first
-        while (re.search(r"^r[0-9][0-9]$", next_option) == None):
-            macro_name += "_" + next_option
+        while (re.search(r"^r[0-9]+$", next_option) == None):
+            if (next_option == "Solar"):
+                macro_name += "_" + "solar"
+            else:
+                macro_name += "_" + next_option
             next_option = option.next()
         macro_name = macro_name[1:]
         rat_root = os.environ.get("RATROOT")
