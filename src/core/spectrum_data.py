@@ -85,6 +85,7 @@ class SpectrumData(object):
                 self.set_parameters_from_filename(options)
         else:
             self._options = options
+        self._label += "-Truth"
         self._histogram = None
         self._unscaled_histogram = None
         self._events = None
@@ -176,7 +177,8 @@ class SpectrumData(object):
             (self._generator.get_mode())
             self._label = spectrum_utils.get_label(self._spectral_index)
     def make_histogram(self, append=False, 
-                       always_remake=False, 
+                       always_remake=False,
+                       bin_width=0.02,
                        hist_path="default"):
         """ Method to generate make histogram 
         
@@ -184,6 +186,8 @@ class SpectrumData(object):
         :type append: bool
         :param always_remake: if True always fills new blank histogram
         :type always_remake: bool
+        :param bin_width: width (MeV) of histogram bins (0.02 MeV default)
+        :type bin_width: float
         :param hist_path: specify alternative path to saved histograms
         :type hist_path: str
         """
@@ -194,14 +198,21 @@ class SpectrumData(object):
             print "SpectrumData.make_histogram: ERROR", detail
             raise
         if (self._prefix.find("hist") >= 0):
-            input_file = TFile(self._path, "READ")
-            input_file.ls()
-            histogram = input_file.Get(self._label+"-Truth")
-            print "SpectrumData.make_histogram: found saved histogram " \
-                + self._label+"-Truth"
+            try:
+                input_file = TFile(self._path, "READ")
+                histogram = input_file.Get(self._label)
+                assert (isinstance(histogram, TH1D)), \
+                    "no object " + self._label + " of type ROOT.TH1D, found "\
+                    "in file"
+                histogram.SetDirectory(0) # Stop ROOT memory managing
+            except AssertionError as detail:
+                print "SpectrumData.make_histogram:", detail
+                print " --> cannot create new histogram from this file"
+                raise
             input_file.Close()
         elif (always_remake):
-            histogram = self.get_blank_histogram()
+            histogram = self.get_blank_histogram(bin_width)
+            histogram.SetDirectory(0) # Stop ROOT memory managing
         else:
             if (hist_path == "default"):
                 hist_path = self.get_default_hist_path()
@@ -211,17 +222,16 @@ class SpectrumData(object):
                     hist_path = directory + \
                         file_manips.strip_path(self.get_default_hist_path())
             try:
-                
                 input_file = TFile(hist_path, "READ")
-                input_file.ls()
                 histogram = input_file.Get(self._label)
                 assert (isinstance(histogram, TH1D)), \
                     "no object " + self._label + " of type ROOT.TH1D, found "\
                     "in file"
+                histogram.SetDirectory(0) # Stop ROOT memory managing
             except AssertionError as detail:
                 print "SpectrumData.make_histogram:", detail
                 print " --> making new histogram"
-                histogram = self.get_blank_histogram()
+                histogram = self.get_blank_histogram(bin_width)
                 always_remake = True # In this instance fill from scratch
         self._histogram = histogram
         assert isinstance(self._histogram, TH1D), \
@@ -232,7 +242,7 @@ class SpectrumData(object):
         if (self._unscaled_histogram == None):
             self._unscaled_histogram = self._histogram.Clone()
             self._unscaled_histogram.SetDirectory(0)
-    def get_blank_histogram(self, no_label=False, bin_width=0.02):
+    def get_blank_histogram(self, bin_width=0.02, no_label=False):
         """ Method to return a blank spectrum histogram to be filled.
         
         :param bin_width: supply a bin width (MeV)
@@ -254,7 +264,6 @@ class SpectrumData(object):
                   histograms would be saved.
         :rtype: str
         """
-        print "SD.GDHP: isinstance(self, unittest) =", isinstance(self, unittest.TestCase)
         hist_path = os.environ.get("MAJORAT_DATA") + "/hist_" + self._name\
             + self._ext
         return str(hist_path)
@@ -264,22 +273,22 @@ class SpectrumData(object):
         
         """
         for ds, run in rat.dsreader(self._path):
-            for iEV in range(0, ds.GetEVCount()):
+            for event in range(0, ds.GetEVCount()):
                 mc = ds.GetMC();
-                KE = 0
+                truth_energy = 0
                 for particle in range (0, mc.GetMCParticleCount()):
                     # Check they are electrons
                     if (mc.GetMCParticle(particle).GetPDGCode() == 11):
-                        KE += mc.GetMCParticle(particle).GetKE()
-                self._histogram.Fill(KE)
-    def get_histogram(self, always_recreate=False):
+                        truth_energy += mc.GetMCParticle(particle).GetKE()
+                self._histogram.Fill(truth_energy)
+    def get_histogram(self, always_recreate=False, bin_width=0.02):
         """ 
         :returns: self._histogram (if None, calls make_histogram)
         :rtype: ROOT.TH1D
         """
         if (self._histogram == None):
             append=False
-            self.make_histogram(append, always_recreate)
+            self.make_histogram(append, always_recreate, bin_width)
         return self._histogram
     def get_number_nuclei(self):
         """ Method to return the number of nuclei. The calculation of
@@ -372,7 +381,6 @@ if __name__ == "__main__":
     parser.add_argument("root_file", help="path to RAT-generated Root file")
     args = parser.parse_args()
     print args
-    print args.root_file
 
     t_half = 5.0e25 # years # KLZ limit from Gando et al.
 

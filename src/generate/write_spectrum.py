@@ -32,8 +32,8 @@ class WriteSpectrum(SpectrumData):
         file prefixed with "hist_"
         """
         assert (self._histogram != None), ("GetSpectrum.write_histogram: "
-                                           "histogram needs to be defined "
-                                           "before it can be \nwritten to file")
+                                           "histogram needs to be defined \n"
+                                           "before it can be written to file")
         if (hist_path == "default"):
             hist_path = self.get_default_hist_path()
         else:
@@ -42,10 +42,11 @@ class WriteSpectrum(SpectrumData):
                 hist_path = directory + \
                     file_manips.strip_path(self.get_default_hist_path())
         output_file = TFile(hist_path, "UPDATE")
+        print "WriteSpectrum.write_histogram: writing to..."
+        print " -->", hist_path
         output_file.cd()
         self._histogram.Write("", TObject.kOverwrite)
         output_file.Write()
-        output_file.ls()
         output_file.Close()
 
 if __name__ == "__main__":
@@ -57,7 +58,6 @@ if __name__ == "__main__":
     parser.add_argument("root_file", help="path to RAT-generated Root file")
     args = parser.parse_args()
     print args
-    print args.root_file
 
     spectrum = WriteSpectrum(args.root_file)
     histogram = spectrum.get_histogram()
