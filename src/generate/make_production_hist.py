@@ -13,6 +13,7 @@ from production import Production
 
 import argparse
 import os
+import re
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate energy spectrum "
@@ -43,7 +44,7 @@ if __name__ == "__main__":
         file_list.append(args.ntuple_path)
     first_file = True
     for file in file_list:
-        spectrum = Production(args.ntuple_file)
+        spectrum = Production(file)
         spectrum.set_parameters()
         if args.is_directory: # default is to always_remake for first file
                               # then append for subsequent files
