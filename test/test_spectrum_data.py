@@ -53,14 +53,16 @@ class TestSpectrumData(unittest.TestCase):
         self.assertEqual(entries, 1000)
         self.assertEqual(events, 1021)
     def test_get_histogram(self):
-        self.assertIsNone(self._spectrum._histogram)
-        self.assertIsNone(self._spectrum._unscaled_histogram)
-        always_recreate=True
-        hist = self._spectrum.get_histogram(always_recreate)
+        hist_label = self._spectrum._label + "-Test"
+        self.assertIsNone(self._spectrum._histograms.get(hist_label))
+        self.assertIsNone(self._spectrum._unscaled_histograms.get(hist_label))
+        always_remake = True
+        hist = self._spectrum.get_histogram(hist_label, always_remake)
         self.assertIsInstance(hist, ROOT.TH1D)
         self.assertEqual(hist.Integral(), 1021)
-        self.assertIsInstance(self._spectrum._unscaled_histogram, ROOT.TH1D)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
+        unscaled_histogram = self._spectrum.get_unscaled_histogram(hist_label)
+        self.assertIsInstance(unscaled_histogram, ROOT.TH1D)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
     def test_get_number_nuclei(self):
         self.assertEqual(self._spectrum.get_number_nuclei(), 
                          7.47001779975032e+26)
@@ -81,31 +83,38 @@ class TestSpectrumData(unittest.TestCase):
         self._spectrum.set_events_by_t_half(effective_mass_max)
         self.assertEqual(self._spectrum._events, 8.673823301223735e15)
     def test_scale_by_t_half(self):
-        self._spectrum.scale_by_t_half()
-        self.assertEqual(self._spectrum._histogram.Integral(), 
-                         10.35564355325908)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
-        self._spectrum.scale_by_t_half(0)
-        self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e+16, 
-                         0.8673823301223735, 12)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
-        self._spectrum.scale_by_t_half()
-        self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
-                         10.35564355325908, 12)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
-    def test_scale_by_mass(self):
-        self._spectrum.scale_by_mass(0.05)
-        self.assertEqual(self._spectrum._histogram.Integral(), 
-                         2.9689528822999485)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
-        self._spectrum.scale_by_mass(0)
-        self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e-5,
+        hist_label = self._spectrum._label + "-Test"
+        always_remake = True
+        histogram = self._spectrum.get_histogram(hist_label, always_remake)
+        t_half = "default"
+        self._spectrum.scale_by_t_half(t_half, hist_label)
+        self.assertEqual(histogram.Integral(), 10.35564355325908)
+        unscaled_histogram = self._spectrum.get_unscaled_histogram(hist_label)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
+        t_half = 0.0
+        self._spectrum.scale_by_t_half(t_half, hist_label)
+        self.assertAlmostEqual(histogram.Integral()/1e+16, 
                                0.8673823301223735, 12)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
-        self._spectrum.scale_by_mass(0.05)
-        self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
-                               2.9689528822999485, 12)
-        self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
+        t_half = "default"
+        self._spectrum.scale_by_t_half(t_half, hist_label)
+        self.assertAlmostEqual(histogram.Integral(), 10.35564355325908, 12)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
+    def test_scale_by_mass(self):
+        hist_label = self._spectrum._label + "-Test"
+        always_remake = True
+        histogram = self._spectrum.get_histogram(hist_label, always_remake)
+        self._spectrum.scale_by_mass(0.05, hist_label)
+        self.assertEqual(histogram.Integral(), 2.9689528822999485)
+        unscaled_histogram = self._spectrum.get_unscaled_histogram(hist_label)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
+        self._spectrum.scale_by_mass(0, hist_label)
+        self.assertAlmostEqual(histogram.Integral()/1e-5,
+                               0.8673823301223735, 12)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
+        self._spectrum.scale_by_mass(0.05, hist_label)
+        self.assertAlmostEqual(histogram.Integral(), 2.9689528822999485, 12)
+        self.assertEqual(unscaled_histogram.Integral(), 1021)
     def tearDown(self):
         pass
 class TestSpectrumData2Beta(unittest.TestCase):

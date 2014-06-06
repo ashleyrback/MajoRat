@@ -9,6 +9,8 @@
 # 31/01/2014 <ab571@sussex.ac.uk> : First revision
 # 29/04/2014 <ab571@sussex.ac.uk> : Now initialised with half life, as base
 #                                   class
+# 06/06/2014 <ab571@sussex.ac.uk> : Refactored for storage of multiple 
+#                                   labelled histograms in memory
 ###########################################################################
 from ROOT import TH1D
 from ROOT import TFile
@@ -18,6 +20,7 @@ import rat
 
 from write_spectrum import WriteSpectrum
 import constants
+import defaults
 
 import math
 
@@ -32,13 +35,18 @@ class Reconstructed(WriteSpectrum):
         if (self._label != None): # has been set
             if (self._label.find("-Truth") >= 0):
                 self._label = self._label[:self._label.find("-Truth")]
-    def fill_histogram(self):
+    def fill_histogram(self, hist_label="default"):
         """ Overloads SpectrumData.fill_histogram, to read DS, extract
         total KE for each event, then apply a gaussian smearing before
         filling the histogram.
         
         """
-        energy_resolution = constants.snoplus.get("energy_resolution")
+        if (hist_label == "default"):
+            hist_label = self._label
+        histogram = self._histograms.get(hist_label)
+        assert isinstance(histogram, TH1D), \
+            "SpectrumData.fill_histogram: histogram is not a TH1D object"
+        energy_resolution = defaults.snoplus.get("energy_resolution")
         seed = 12345
         random = TRandom3(seed)
         for ds, run in rat.dsreader(self._path):
@@ -54,7 +62,7 @@ class Reconstructed(WriteSpectrum):
                 sigma = math.sqrt(truth_energy*energy_resolution)
                 sigma /= energy_resolution
                 reconstructed_energy = random.Gaus(mu, sigma)
-                self._histogram.Fill(reconstructed_energy)
+                histogram.Fill(reconstructed_energy)
 
 if __name__ == "__main__":
     from ROOT import TCanvas
@@ -79,20 +87,27 @@ if __name__ == "__main__":
     t_half = constants.half_life.get("Xe136").get(0)
 
     spectrum = WriteSpectrum(args.root_file, t_half)
-    always_recreate = True
+    hist_label = "default"
+    always_remake = True
     if (args.bin_width != 0.02):
-        truth_hist = spectrum.get_histogram(always_recreate, args.bin_width)
+        truth_hist = spectrum.get_histogram(hist_label,
+                                            always_remake,
+                                            args.bin_width)
     else:
-        truth_hist = spectrum.get_histogram(always_recreate)
-    spectrum.write_histogram()
+        truth_hist = spectrum.get_histogram(hist_label, always_remake)
+    spectrum.write_histograms()
 
     reco_spectrum = Reconstructed(args.root_file, t_half)
-    always_recreate = True
+    hist_label = "default"
+    always_remake = True
     if (args.bin_width != 0.02):
-        reco_hist = reco_spectrum.get_histogram(always_recreate, args.bin_width)
+        reco_hist = reco_spectrum.get_histogram(hist_label,
+                                                always_remake,
+                                                args.bin_width)
     else:
-        reco_hist = reco_spectrum.get_histogram(always_recreate)
-    reco_spectrum.write_histogram()
+        reco_hist = reco_spectrum.get_histogram(hist_label, 
+                                                always_remake)
+    reco_spectrum.write_histograms()
 
     title = "Truth/reconstructed comparison " + reco_spectrum._label
     stack = THStack(title, title)

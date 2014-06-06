@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 #
-# spectrum_data.py
+# spectrum_plot.py
 #
 # Containers for spectrum data
 #
-# Author A R Back - 31/01/2014 <ab571@sussex.ac.uk> : First revision
-#        A R Back - 20/02/2014 <ab571@sussex.ac.uk> : Updated __init__, more
-#                                                     info extracted from
-#                                                     filename. Updated 
-#                                                     get_histogram, can be 
-#                                                     obtained from root file.  
+# Author A R Back 
+#
+# 05/06/2014 <ab571@sussex.ac.uk> : First revision
 ###############################################################################
 from ROOT import TH1D
 from ROOT import THStack

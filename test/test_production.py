@@ -22,27 +22,29 @@ class TestProduction(unittest.TestCase):
     def test_extension(self):
         self.assertEqual(self._spectrum._ext, ".ntuple.root")
     def testMakeHistogram(self):
+        hist_label = self._spectrum._label + "-Test"
         append = False
         always_remake = True
-        self._spectrum.make_histogram(append, always_remake)
-        histogram = self._spectrum.get_histogram()
+        self._spectrum.make_histogram(hist_label, append, always_remake)
+        histogram = self._spectrum.get_histogram(hist_label)
         self.assertEqual(histogram.GetEntries(), 10001)
     def testAppend(self):
+        hist_label = self._spectrum._label + "-Test"
         append = False
         always_remake = True
         hist_path = os.environ.get("MAJORAT_TEST")
-        self._spectrum.make_histogram(append, always_remake)
-        self._spectrum.write_histogram(hist_path+"/")
-        histogram = self._spectrum.get_histogram()
+        self._spectrum.make_histogram(hist_label, append, always_remake)
+        self._spectrum.write_histograms(hist_path+"/")
+        histogram = self._spectrum.get_histogram(hist_label)
         self.assertEqual(histogram.GetEntries(), 10001)
         append = True
         always_remake = False
         self._spectrum2 = Production(path2)
         self._spectrum2.set_parameters()
         bin_width = "default"
-        self._spectrum2.make_histogram(append, always_remake, 
+        self._spectrum2.make_histogram(hist_label, append, always_remake, 
                                        bin_width, hist_path+"/")
-        histogram2 = self._spectrum2.get_histogram()
+        histogram2 = self._spectrum2.get_histogram(hist_label)
         self.assertNotEqual(histogram.GetEntries(), histogram2.GetEntries())
         self.assertEqual(histogram2.GetEntries(), 20003)
     def tearDown(self):
