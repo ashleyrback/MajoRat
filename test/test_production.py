@@ -39,7 +39,9 @@ class TestProduction(unittest.TestCase):
         always_remake = False
         self._spectrum2 = Production(path2)
         self._spectrum2.set_parameters()
-        self._spectrum2.make_histogram(append, always_remake, hist_path+"/")
+        bin_width = "default"
+        self._spectrum2.make_histogram(append, always_remake, 
+                                       bin_width, hist_path+"/")
         histogram2 = self._spectrum2.get_histogram()
         self.assertNotEqual(histogram.GetEntries(), histogram2.GetEntries())
         self.assertEqual(histogram2.GetEntries(), 20003)
@@ -56,6 +58,8 @@ class TestProduction2Beta(test_spectrum_data.TestSpectrumData2Beta):
         self._spectrum.set_parameters()
     def test_n_events(self):
         pass
+    def test_label(self):
+        self.assertEqual(self._spectrum._label, "0#nu#beta#beta")
     def tearDown(self):
         pass
 class TestProductionSolar(test_spectrum_data.TestSpectrumDataSolar):
@@ -65,6 +69,8 @@ class TestProductionSolar(test_spectrum_data.TestSpectrumDataSolar):
         self._spectrum.set_parameters()
     def test_n_events(self):
         pass
+    def test_label(self):
+        self.assertEqual(self._spectrum._label, "B8")
     def tearDown(self):
         pass
 class TestProductionDecayChain(test_spectrum_data.TestSpectrumDataDecayChain):
@@ -74,6 +80,8 @@ class TestProductionDecayChain(test_spectrum_data.TestSpectrumDataDecayChain):
         self._spectrum.set_parameters()
     def test_n_events(self):
         pass
+    def test_label(self):
+        self.assertEqual(self._spectrum._label, "Rh102")
     def tearDown(self):
         pass
 class TestProductionBackg(test_spectrum_data.TestSpectrumDataBackg):
@@ -83,5 +91,7 @@ class TestProductionBackg(test_spectrum_data.TestSpectrumDataBackg):
         self._spectrum.set_parameters()
     def test_n_events(self):
         pass
+    def test_label(self):
+        self.assertEqual(self._spectrum._label, "K42")
     def tearDown(self):
         pass

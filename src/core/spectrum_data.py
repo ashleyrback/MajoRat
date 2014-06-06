@@ -22,6 +22,9 @@
 #                                   method, but still by default for 
 #                                   correct filenames, to allow for 
 #                                   integration with production macros.
+# 05/06/2014 <ab571@sussex.ac.uk> : Changed handling of default values. 
+#                                   Added scale_histogram method, to 
+#                                   simplify existing scale methods
 ###########################################################################
 from ROOT import TH1D
 from ROOT import TFile
@@ -30,9 +33,11 @@ import rat
 
 import isotope
 import constants
+import defaults
 import file_manips
 import list_manips
 import spectrum_utils
+import roi_utils
 import generators
 
 import re
@@ -85,7 +90,8 @@ class SpectrumData(object):
                 self.set_parameters_from_filename(options)
         else:
             self._options = options
-        self._label += "-Truth"
+        if (self._label != None): # has been set
+            self._label += "-Truth"
         self._histogram = None
         self._unscaled_histogram = None
         self._events = None
@@ -104,7 +110,9 @@ class SpectrumData(object):
         option = iter(main_options)
         self._rat_release = option.next().replace("-",".")
         n_events = option.next()
-        if n_events.find("k") >= 0:
+        if (n_events.find("prod") >= 0):
+            self._n_events = None # Set as default for production
+        elif n_events.find("k") >= 0:
             evts = int(n_events[:n_events.find("k")]) * 1000
             self._n_events = evts
         elif n_events.find("M") >= 0:
@@ -178,7 +186,7 @@ class SpectrumData(object):
             self._label = spectrum_utils.get_label(self._spectral_index)
     def make_histogram(self, append=False, 
                        always_remake=False,
-                       bin_width=0.02,
+                       bin_width="default",
                        hist_path="default"):
         """ Method to generate make histogram 
         
@@ -186,7 +194,7 @@ class SpectrumData(object):
         :type append: bool
         :param always_remake: if True always fills new blank histogram
         :type always_remake: bool
-        :param bin_width: width (MeV) of histogram bins (0.02 MeV default)
+        :param bin_width: width (MeV) of histogram bins
         :type bin_width: float
         :param hist_path: specify alternative path to saved histograms
         :type hist_path: str
@@ -197,6 +205,8 @@ class SpectrumData(object):
         except AssertionError as detail:
             print "SpectrumData.make_histogram: ERROR", detail
             raise
+        if (bin_width == "default"):
+            bin_width = defaults.spectrum.get("bin_width")
         if (self._prefix.find("hist") >= 0):
             try:
                 input_file = TFile(self._path, "READ")
@@ -242,7 +252,7 @@ class SpectrumData(object):
         if (self._unscaled_histogram == None):
             self._unscaled_histogram = self._histogram.Clone()
             self._unscaled_histogram.SetDirectory(0)
-    def get_blank_histogram(self, bin_width=0.02, no_label=False):
+    def get_blank_histogram(self, bin_width="default", no_label=False):
         """ Method to return a blank spectrum histogram to be filled.
         
         :param bin_width: supply a bin width (MeV)
@@ -250,6 +260,8 @@ class SpectrumData(object):
         :returns: blank histogram
         :rtype: ROOT.TH1D
         """
+        if (bin_width == "default"):
+            bin_width = defaults.spectrum.get("bin_width")
         lower = self._generator.get_e_lo()
         upper = self._generator.get_e_hi()
         n_bins = int((upper-lower) / bin_width)
@@ -281,11 +293,13 @@ class SpectrumData(object):
                     if (mc.GetMCParticle(particle).GetPDGCode() == 11):
                         truth_energy += mc.GetMCParticle(particle).GetKE()
                 self._histogram.Fill(truth_energy)
-    def get_histogram(self, always_recreate=False, bin_width=0.02):
+    def get_histogram(self, always_recreate=False, bin_width="default"):
         """ 
         :returns: self._histogram (if None, calls make_histogram)
         :rtype: ROOT.TH1D
         """
+        if (bin_width == "default"):
+            bin_width = defaults.spectrum.get("bin_width")
         if (self._histogram == None):
             append=False
             self.make_histogram(append, always_recreate, bin_width)
@@ -299,73 +313,164 @@ class SpectrumData(object):
         """
         if isinstance(self._generator.get_isotope(), isotope.SNOPlusTe):
             number_nuclei = self._generator.get_isotope().get_number_nuclei\
-                (constants.snoplus.get("fv_radius"))
+                (defaults.snoplus.get("fv_radius"))
         else:
             number_nuclei = self._generator.get_isotope().get_number_nuclei\
                 (constants.isotope_mass.get\
                      (self._generator.get_isotope().get_name()))
         return number_nuclei
-    def set_events_by_t_half(self, t_half=None):
-        """ Method that allows you to set self._events.  By default
-        self._t_half is used unless an alternative half life is supplied.
+    def set_events_by_t_half(self, t_half="default", livetime="default"):
+        """ Method that allows you to set self._events by half life. Assumes
+        default number of nuclei.
+        
+        :param livetime: livetime in years
+        :type livetime: float
+        :param t_half: half life in years (default = self._t_half)
+        :type t_half: float
         """
-        if (t_half == None):
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
+        if (t_half == "default"):
             t_half = self._t_half
         assert (self._t_half != None),\
             "SpectrumData.set_events_by_t_half: ERROR t_half = None"
-        number_nuclei = self.get_number_nuclei()
         self._events = self._generator.get_isotope().get_decays_from_t_half\
-            (t_half, number_nuclei)
+            (t_half, livetime)
         print "SpectrumData.set_events_by_t_half: number of events set at",\
             self._events
-    def set_events_by_mass(self, effective_mass):
-        """ Method that allows you to set self._events. By default 
-        self._t_half is used unless an alternative half life is supplied.
+    def set_events_by_mass(self, effective_mass, livetime="default"):
+        """ Method that allows you to set self._events by effective mass.
+        Assumes default number of nuclei.
+
+        :param effective_mass: effective double beta mass in eV (no default)
+        :type effective_mass: float
+        :param livetime: livetime in years
+        :type livetime: float
         """
-        number_nuclei = self.get_number_nuclei()
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
         self._events = self._generator.get_isotope().get_decays_from_mass\
-            (effective_mass, number_nuclei)
+            (effective_mass, livetime)
         print "SpectrumData.set_events_by_mass: number of events set at",\
             self._events
-    def scale_by_t_half(self, t_half=None):
+    def scale_histogram(self, scaling_factor, e_lo="default", e_hi="default"):
+        """ Method for scaling any histogram by a scaling factor.
+
+        :param scaling_factor: proposed integral of histogram after scaling
+        :type scaling_factor: float
+        :param e_lo: lower energy integration limit
+        :type e_lo: float
+        :param e_hi: upper energy integration limit
+        :type e_hi: float
+        """
+        full_spectrum = False
+        if (e_lo == "default") or (e_hi == "default"):
+            full_spectrum = True
+        n_bins = self._histogram.GetNbinsX()
+        print "SD.SH: n_bins =", n_bins
+        # work out mean bin width
+        bin_width_sum = 0.0
+        for bin_ in range(0, n_bins):
+            bin_width_sum += self._histogram.GetBinWidth(bin_)
+        bin_width = bin_width_sum / n_bins
+        print "SD.SH: bin_width =", bin_width
+        if not(full_spectrum):
+            # set integration limits
+            from_bin = int(e_lo/bin_width)
+            print "SD.SH: from_bin =", from_bin
+            to_bin = int(e_hi/bin_width)
+            print "SD.SH: to_bin =", to_bin
+        print "SD.SH: self._events =", self._events
+        try:
+            if (full_spectrum):
+                self._histogram.Scale\
+                    (scaling_factor/self._histogram.Integral())
+            else:
+                self._histogram.Scale\
+                    (scaling_factor/self._histogram.Integral(from_bin, to_bin))
+        except ZeroDivisionError as detail:
+            print "SpectrumData.scale_histogram: WARNING", detail
+            print " --> reverting to unscaled histogram then re-scaling"
+            self._histogram = self._unscaled_histogram.Clone()
+            if (full_spectrum):
+                self._histogram.Scale\
+                    (scaling_factor/self._histogram.Integral())
+            else:
+                self._histogram.Scale\
+                    (scaling_factor/self._histogram.Integral(from_bin, to_bin))
+        print "SpectrumData.scale_histogram: histogram now contains:"
+        if (full_spectrum):
+            print " -->", self._histogram.Integral(),"events"
+        else:
+            print " -->", self._histogram.Integral\
+                               (from_bin, to_bin),"events in region"
+    def scale_by_t_half(self, t_half="default", livetime="default"):
         """ Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events,
-        which is calculated from the half life. By default self._t_half
-        is used unless an alternative half life is supplied. 
+        calculated from the half life.
+        
+        :param t_half: half life in years (default = self._t_half)
+        :type t_half: float
+        :param livetime: livetime in years
+        :type livetime: float
         """
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
         if (t_half == None):
             t_half = self._t_half
         if (self._histogram == None):
             self._histogram = self.get_histogram()
-        self.set_events_by_t_half(t_half)
-        try:
-            self._histogram.Scale(self._events/self._histogram.Integral())
-        except ZeroDivisionError as detail:
-            print "SpectrumData.scale_by_t_half: WARNING", detail
-            self._histogram = self._unscaled_histogram.Clone()
-            self._histogram.Scale(self._events/self._histogram.Integral())
-            print " --> reverting to unscaled histogram then re-scaling"
-        print "SpectrumData.scale_by_t_half: histogram integral is",\
-            self._histogram.Integral()
-    def scale_by_mass(self, effective_mass):
+        self.set_events_by_t_half(t_half, livetime)
+        self.scale_histogram(self._events)
+    def scale_by_mass(self, effective_mass, livetime="default"):
         """ Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events,
-        which is calculated from the half life. By default self._t_half
-        is used unless an alternative half life is supplied. 
+        calculated from the effective mass.
+        
+        :param effective_mass: effective double beta mass in eV (no default)
+        :type effective_mass: float
+        :param livetime: livetime in years (default = 1.0)
+        :type livetime: float
         """
-        print "SpectrumData.scale_by_mass"
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
         if (self._histogram == None):
             self._histogram = self.get_histogram()
-        self.set_events_by_mass(effective_mass)
-        try:
-            self._histogram.Scale(self._events/self._histogram.Integral())
-        except ZeroDivisionError as detail:
-            print "SpectrumData.scale_by_mass: WARNING", detail
-            self._histogram = self._unscaled_histogram.Clone()
-            self._histogram.Scale(self._events/self._histogram.Integral())
-            print " --> reverting to unscaled histogram then re-scaling"
-        print "SpectrumData.scale_by_mass: histogram integral is",\
-            self._histogram.Integral()
+        self.set_events_by_mass(effective_mass, livetime)
+        self.scale_histogram(self._events)
+    def scale_by_events(self, events, e_lo="default", e_hi="default"):
+        """ Scaling is not done automatically in the constructor. This
+        method scales the histogram according to the number of events
+        supplied.
+
+        :param events: number of events in full spectrum
+        :type events: float
+        :param e_lo: lower energy integration limit
+        :type e_lo: float
+        :param e_hi: upper energy integration limit
+        :type e_hi: float
+        """
+        if (self._histogram == None):
+            self._histogram = self.get_histogram()
+        self.scale_histogram(events, e_lo, e_hi)
+    def scale_by_roi_events(self, events, roi):
+        """ Scaling is not done automatically in the constructor. This
+        method scales the histogram according to the number of events
+        supplied, in the ROI supplied
+
+        :param events: number of events in full spectrum
+        :type events: float
+        :param roi: region of interest to consider
+        :type roi: roi_utils.RoIUtils
+        """
+        if (self._histogram == None):
+            self._histogram = self.get_histogram()
+        assert (isinstance(roi, roi_utils.RoIUtils)), \
+            "SpectrumData.scale_by_roi_events: ERROR, no valid "\
+            "roi_utils.RoIUtils object"
+        e_lo = roi.get_lower_limit()
+        e_hi = roi.get_upper_limit()
+        self.scale_histogram(events, e_lo, e_hi)
 
 ###########################################################################
 if __name__ == "__main__":

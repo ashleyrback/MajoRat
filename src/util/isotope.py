@@ -16,8 +16,10 @@
 #                                   modified get_decays_from_t_half method
 # 21/05/2014 <ab571@sussex.ac.uk> : Valid range for half life and 
 #                                   corresponding effective mass.
+# 05/06/2014 <ab571@sussex.ac.uk> : Improved defaults
 ###########################################################################
 import constants
+import defaults
 import physics
 
 import math
@@ -38,9 +40,16 @@ class Isotope(object):
         :rtype: str
         """
         return self._name
-    def get_number_nuclei(self, isotope_mass=240.534021855): # use SNO+ Te mass
-                                                             # as default
-        """ Returns the number of isotope for a given mass (kg) """
+    def get_number_nuclei(self, isotope_mass="default"): 
+        """ Number of nuclei for a given target mass.
+        
+        :param isotope_mass: mass of isotope/target (kg)
+        :type isotope_mass: float
+        :returns: number of nuclei
+        :rtype: float
+        """
+        if (isotope_mass == "default"):
+            isotope_mass = defaults.target_mass
         try:
             assert constants.atomic_weights.get(self._name) != None, \
                 "Atomic weight " + self._name + " is not available"
@@ -51,11 +60,23 @@ class Isotope(object):
         isotope_mass *= 1e3 # convert mass to grams
         self._number_nuclei = (isotope_mass*constants.n_avagadro)/atomic_weight
         return self._number_nuclei
-    def get_decays_from_t_half(self, t_half, number_nuclei=None, livetime=1.0):
-        """ Returns the number of decays (per year) for a given half life
-        (in years) and number of nuclei. Livetime 1 year by default.
+    def get_decays_from_t_half(self, t_half, 
+                               livetime="default", 
+                               number_nuclei="default"):
+        """ Expected number of decays.
+
+        :param t_half: half life in years (default = self._t_half)
+        :type t_half: float
+        :param livetime: livetime in years
+        :type livetime: float
+        :param number_nuclei: number of target nuclei in target mass
+        :type number_nuclei: float
+        :returns: expected number of decays
+        :rtype: float
         """
-        if (number_nuclei == None):
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
+        if (number_nuclei == "default"):
             if (self._number_nuclei == None):
                 self.get_number_nuclei()
             number_nuclei = self._number_nuclei
@@ -74,16 +95,28 @@ class Isotope(object):
                 "half life does not fall within the accepted range"
         except AssertionError as detail:
             print "Isotope.get_decays_from_t_half: ERROR", detail
-            print " --> cannont calculate decays"
+            print " --> cannot calculate decays"
             sys.exit(1)
         decay_rate = math.log(2)/t_half
         number_decays = decay_rate*number_nuclei*livetime
         return number_decays
-    def get_decays_from_mass(self, effective_mass, number_nuclei=None, livetime=1.0):
-        """ Returns the number of decays (per year) for a given effective
-        mass (in eV) and number of nuclei. Livetime 1 year by default.
+    def get_decays_from_mass(self, effective_mass,
+                             livetime="default",
+                             number_nuclei="default"):
+        """ Expected number of decays.
+
+        :param effective_mass: effective double beta mass in eV (no default)
+        :type effective_mass: float
+        :param livetime: livetime in years
+        :type livetime: float
+        :param number_nuclei: number of target nuclei in target mass
+        :type number_nuclei: float
+        :returns: expected number of decays
+        :rtype: float
         """
-        if (number_nuclei == None):
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
+        if (number_nuclei == "default"):
             if (self._number_nuclei == None):
                 self.get_number_nuclei()
             number_nuclei = self._number_nuclei
@@ -116,40 +149,72 @@ class SNOPlusTe(Isotope):
     fiducial volume.
     """
     def __init__(self, isotope_name="Te130"):
-        """ Initialised with Te130 as the default choice for isotope """
-        super(SNOPlusTe, self).__init__(isotope_name)
-        # Constants defined here are taken from the Te Verification Report,
-        # unless stated otherwise stated
-        self._av_volume = 903.3 # m^3
-        self._density_lab = 0.862e3 # kgm^-3
-    def get_mass(self, loading=0.003):
-        """ Returns the mass of Te-130 in the AV, for a given natural Te
-        loading fraction. Assumes pure LAB scintillator.
+        """ Initialised with choice of isotope.
+
+        :param isotope_name: name of isotope, Te130 default
+        :type isotope_name: str
         """
+        super(SNOPlusTe, self).__init__(isotope_name)
+        self._av_volume = constants.av_volume
+        self._density_lab = constants.density_lab
+    def get_mass(self, loading="default"):
+        """ Mass of Te-130 in AV, for given natural Te loading fraction.
+
+        :param loading: loading fraction of Te-nat
+        :type loading: float
+        :returns: mass Te130, in given AV
+        :rtype: float
+        """
+        if (loading == "default"):
+            loading = defaults.snoplus.get("te_loading")
         mass_lab = self._density_lab*self._av_volume
         mass = mass_lab*constants.mass_fractions.get(self._name)*loading
         return mass
-    def get_mass_in_fv(self, radius=4.0, loading=0.003):
-        """ Returns the mass of Te-130 in a FV - specified by radius - 
-        for a given natural Te loading fraction
+    def get_mass_in_fv(self, radius="default", loading="default"):
+        """ Mass of Te-130 in a FV, for given natural Te loading fraction.
+
+        :param radius: specify FV radius (m)
+        :type radius: float
+        :param loading: loading fraction of Te-nat
+        :type loading: float
+        :returns: mass Te130, in given FV
+        :rtype: float
         """
+        if (radius == "default"):
+            radius = defaults.snoplus.get("fv_radius")
+        if (loading == "default"):
+            loading = defaults.snoplus.get("te_loading")
         volume = math.pow(radius, 3)
         volume *= math.pi
         volume *= (4.0/3.0)
         mass_lab = self._density_lab*volume
         mass = mass_lab*constants.mass_fractions.get(self._name)*loading
         return mass
-    def get_number_nuclei(self, fv_cut=True, radius=4.0, loading = 0.003):
-        """ For a given loading fraction (not percentage), and radius, 
-        which defines a fiducial volume, the number of nuclei that could 
-        decay is returned
+    def get_number_nuclei(self, fv_cut=True, 
+                          radius="default", 
+                          loading="default"):
+        """ Number of nuclei that could decay.
+
+        :param fv_cut: cut on fiducical volume (FV)?
+        :type fv_cut: bool
+        :param radius: specify FV radius (m)
+        :type radius: float
+        :param loading: loading fraction of Te-nat
+        :type loading: float
+        :returns: number of nuclei
+        :rtype: float
         """
+        if (radius == "default"):
+            radius = defaults.snoplus.get("fv_radius")
+        if (loading == "default"):
+            loading = defaults.snoplus.get("te_loading")
         if (fv_cut):
             mass = self.get_mass_in_fv(radius, loading)
         else:
             mass = self.get_mass(loading)
         self._number_nuclei = super(SNOPlusTe, self).get_number_nuclei(mass)
         return self._number_nuclei
+
 ###############################################################################
 if __name__ == "__main__":
     te_converter = physics.ZeroNuConverter("Te130")

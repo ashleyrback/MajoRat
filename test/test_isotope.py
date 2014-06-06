@@ -28,20 +28,20 @@ class TestSNOPlusTe(unittest.TestCase):
         te_mass = 810.475591248 # kg
         self.assertEqual(self._te130.get_mass(), te_mass)
     def test_mass_in_fv(self):
-        te_mass = 240.53402185501733 # kg
+        te_mass = 161.13900292240425 # kg
         self.assertEqual(self._te130.get_mass_in_fv(), te_mass)
     def test_number_nuclei(self):
         self.assertIsNone(self._te130._number_nuclei)
         self.assertEqual(self._te130.get_number_nuclei(), 
-                         1.1150580505749745e+27)
+                         7.47001779975032e+26)
         self.assertEqual(self._te130.get_number_nuclei(False), 
                          3.7571705068828865e27)
     def test_decays_from_t_half(self):
         self.assertEqual(self._te130.get_decays_from_t_half(5e+25), 
-                         15.457986878334248)
+                         10.35564355325908)
     def test_decays_from_mass(self):
         self.assertEqual(self._te130.get_decays_from_mass(0.0933806512323), 
-                         15.45798687833113)
+                         10.355643553256991)
     def test_decays_equality(self):
         t_half = self._random.Uniform(1e24, 10e24)
         decays_from_t_half = self._te130.get_decays_from_t_half(t_half)
@@ -56,16 +56,16 @@ class TestSNOPlusTe(unittest.TestCase):
         effective_mass_min = self._converter.half_life_to_mass(t_half_max)
         self.assertAlmostEqual(self._te130.get_decays_from_mass\
                                    (effective_mass_max)/1.0e16,
-                               1.2947514665383534, 12)
+                               0.8673823301223736, 12)
         self.assertAlmostEqual(self._te130.get_decays_from_t_half\
                                    (t_half_min)/1.0e16,
-                               1.2947514665383534, 12)
+                               0.8673823301223736, 12)
         self.assertAlmostEqual(self._te130.get_decays_from_mass\
                                    (effective_mass_min)/1.0e-5,
-                               1.2947514665383534, 12)
+                               0.8673823301223736, 12)
         self.assertAlmostEqual(self._te130.get_decays_from_t_half\
                                    (t_half_max)/1.0e-5,
-                               1.2947514665383534, 12)
+                               0.8673823301223736, 12)
     def tearDown(self):
         pass
 

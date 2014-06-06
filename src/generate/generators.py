@@ -11,10 +11,11 @@
 #
 ###########################################################################
 import isotope
+import defaults
 
 class Generator(object):
     """ Base class for handling generators """
-    def __init__(self, isotope_, e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, e_lo="default", e_hi="default"):
         """ Initialise base class.
 
         :param isotope_: name of isotope simulated
@@ -24,6 +25,10 @@ class Generator(object):
         :param e_hi: upper limit on energy spectrum, if applicable
         :type e_hi: float
         """
+        if (e_lo == "default"):
+            e_lo = defaults.spectrum.get("e_lo") 
+        if (e_hi == "default"):
+            e_hi = defaults.spectrum.get("e_hi")
         self._isotope = isotope_
         self._e_lo = e_lo
         self._e_hi = e_hi
@@ -61,7 +66,7 @@ class Generator(object):
         return self._type
 class Decay0(Generator):
     """ Derived class for handling decay0 generator """
-    def __init__(self, isotope_, e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, e_lo="default", e_hi="default" ):
         """ Initialise Decay0 class.
 
         :param isotope_: name of isotope simulated
@@ -75,7 +80,7 @@ class Decay0(Generator):
         self._generator = "decay0"
 class DecayChain(Generator):
     """ Derived class for handling decaychain generator """
-    def __init__(self, isotope_, e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, e_lo="default", e_hi="default"):
         """ Initialise DecayChain class.
 
         :param isotope_: name of isotope simulated
@@ -89,7 +94,7 @@ class DecayChain(Generator):
         self._generator = "decaychain"
 class Solar(Generator):
     """ Derived class for handling solar generator """
-    def __init__(self, isotope_, type_="nue", e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, type_="nue", e_lo="default", e_hi="default"):
         """ Initialise Solar class.
 
         :param isotope_: name of isotope simulated
@@ -106,7 +111,7 @@ class Solar(Generator):
         self._type = type_
 class Backg(Decay0):
     """ Derived class for handling backg generator """
-    def __init__(self, isotope_, type_="backg", e_lo=0.0, e_hi=3.5):
+    def __init__(self, isotope_, type_="backg", e_lo="default", e_hi="default"):
         """ Initialise Backg class.
         
         :param isotope_: name of isotope simulated
@@ -123,7 +128,7 @@ class Backg(Decay0):
 class TwoBeta(Decay0):
     """ Derived class for handling backg generator """
     def __init__(self, isotope_, mode, level=0,
-                 type_="2beta", e_lo=0.0, e_hi=3.5):
+                 type_="2beta", e_lo="default", e_hi="default"):
         """ Initialise TwoBeta class.
         
         :param isotope_: isotope object

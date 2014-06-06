@@ -26,7 +26,6 @@ class WriteSpectrum(SpectrumData):
     def __init__(self, path, t_half=None):
         """ Initialises the class, extracts information from filename """
         super(WriteSpectrum, self).__init__(path, t_half)
-
     def write_histogram(self, hist_path="default"):
         """ Writes the histogram that has been created to a separate Root 
         file prefixed with "hist_"

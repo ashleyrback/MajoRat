@@ -41,6 +41,9 @@ class Production(WriteSpectrum):
         :type path: str
         """
         super(Production, self).__init__(path)
+        if (self._label != None): # has been set
+            if (self._label.find("-Truth") >= 0):
+                self._label = self._label[:self._label.find("-Truth")]
         self._majorat_name = None
     def set_parameters(self):
         """ Method to initialise spectrum parameters for non MajoRat style

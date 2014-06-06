@@ -38,7 +38,7 @@ class TestSpectrumData(unittest.TestCase):
     def test_spectral_index(self):
         self.assertEqual(self._spectrum._spectral_index, 0)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "0#nu#beta#beta")
+        self.assertEqual(self._spectrum._label, "0#nu#beta#beta-Truth")
     def test_dsreader(self):
         events = rat.dsreader(self._spectrum._path)
         ds, run = events.next()
@@ -63,48 +63,48 @@ class TestSpectrumData(unittest.TestCase):
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
     def test_get_number_nuclei(self):
         self.assertEqual(self._spectrum.get_number_nuclei(), 
-                         1.1150580505749745e+27)
+                         7.47001779975032e+26)
     def test_set_events_by_t_half(self):
         self._spectrum.set_events_by_t_half()
-        self.assertEqual(self._spectrum._events, 15.457986878334248)
+        self.assertEqual(self._spectrum._events, 10.35564355325908)
         self._spectrum.set_events_by_t_half(0.0)
-        self.assertEqual(self._spectrum._events, 1.294751466538353e+16)
+        self.assertEqual(self._spectrum._events, 8.673823301223735e+15)
         t_half_max = self._converter.mass_to_half_life(0.0)
         self._spectrum.set_events_by_t_half(t_half_max)
-        self.assertEqual(self._spectrum._events, 1.2947514665383531e-05)
+        self.assertEqual(self._spectrum._events, 8.673823301223735e-06)
     def test_set_events_by_mass(self):
         self._spectrum.set_events_by_mass(0.05)
-        self.assertEqual(self._spectrum._events, 4.431789725182429)
+        self.assertEqual(self._spectrum._events, 2.9689528822999485)
         self._spectrum.set_events_by_mass(0.0)
-        self.assertEqual(self._spectrum._events, 1.2947514665383531e-5)
+        self.assertEqual(self._spectrum._events, 8.673823301223737e-06)
         effective_mass_max = self._converter.half_life_to_mass(0.0)
         self._spectrum.set_events_by_t_half(effective_mass_max)
-        self.assertEqual(self._spectrum._events, 1.294751466538353e16)
+        self.assertEqual(self._spectrum._events, 8.673823301223735e15)
     def test_scale_by_t_half(self):
         self._spectrum.scale_by_t_half()
         self.assertEqual(self._spectrum._histogram.Integral(), 
-                         15.457986878334248)
+                         10.35564355325908)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_t_half(0)
         self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e+16, 
-                         1.294751466538353, 12)
+                         0.8673823301223735, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_t_half()
         self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
-                         15.457986878334248, 12)
+                         10.35564355325908, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
     def test_scale_by_mass(self):
         self._spectrum.scale_by_mass(0.05)
         self.assertEqual(self._spectrum._histogram.Integral(), 
-                         4.431789725182429)
+                         2.9689528822999485)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_mass(0)
         self.assertAlmostEqual(self._spectrum._histogram.Integral()/1e-5,
-                               1.2947514665383531, 12)
+                               0.8673823301223735, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
         self._spectrum.scale_by_mass(0.05)
         self.assertAlmostEqual(self._spectrum._histogram.Integral(), 
-                         4.431789725182429, 12)
+                               2.9689528822999485, 12)
         self.assertEqual(self._spectrum._unscaled_histogram.Integral(), 1021)
     def tearDown(self):
         pass
@@ -135,7 +135,7 @@ class TestSpectrumData2Beta(unittest.TestCase):
     def test_spectral_index(self):
         self.assertEqual(self._spectrum._spectral_index, 0)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "0#nu#beta#beta")
+        self.assertEqual(self._spectrum._label, "0#nu#beta#beta-Truth")
     def tearDown(self):
         pass
 class TestSpectrumDataSolar(unittest.TestCase):
@@ -158,7 +158,7 @@ class TestSpectrumDataSolar(unittest.TestCase):
     def test_spectral_index(self):
         self.assertIsNone(self._spectrum._spectral_index)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "B8")
+        self.assertEqual(self._spectrum._label, "B8-Truth")
     def tearDown(self):
         pass
 class TestSpectrumDataDecayChain(unittest.TestCase):
@@ -181,7 +181,7 @@ class TestSpectrumDataDecayChain(unittest.TestCase):
     def test_spectral_index(self):
         self.assertIsNone(self._spectrum._spectral_index)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "Rh102")
+        self.assertEqual(self._spectrum._label, "Rh102-Truth")
     def tearDown(self):
         pass
 class TestSpectrumDataBackg(unittest.TestCase):
@@ -204,7 +204,7 @@ class TestSpectrumDataBackg(unittest.TestCase):
     def test_spectral_index(self):
         self.assertIsNone(self._spectrum._spectral_index)
     def test_label(self):
-        self.assertEqual(self._spectrum._label, "K42")
+        self.assertEqual(self._spectrum._label, "K42-Truth")
     def tearDown(self):
         pass
 class TestSpectrumDataNonMajoRatFile(unittest.TestCase):

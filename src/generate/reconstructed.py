@@ -29,8 +29,9 @@ class Reconstructed(WriteSpectrum):
     def __init__(self, path, t_half):
         """ Initialises the class, extracts information from filename """
         super(Reconstructed, self).__init__(path, t_half)
-        if (self._label.find("-Truth") >= 0):
-            self._label = self._label[:self._label.find("-Truth")]
+        if (self._label != None): # has been set
+            if (self._label.find("-Truth") >= 0):
+                self._label = self._label[:self._label.find("-Truth")]
     def fill_histogram(self):
         """ Overloads SpectrumData.fill_histogram, to read DS, extract
         total KE for each event, then apply a gaussian smearing before
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     legend.AddEntry(truth_hist, truth_hist.GetTitle(), "l")
     legend.AddEntry(reco_hist, reco_hist.GetTitle(), "l")
 
-    c1 = TCanvas()
+    c1 = TCanvas("canvas", "canvas")
     c1.cd()
     stack.Draw("nostack")
     stack.GetXaxis().SetTitle("E (MeV)")
