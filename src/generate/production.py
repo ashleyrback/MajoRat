@@ -199,10 +199,6 @@ class Production(WriteSpectrum):
         
         :param hist_label: histogram key in self._histograms
         :type hist_label: str
-        :param reco_pos: use reconstructed radius? (default --> use Truth)
-        :type reco_pos: bool
-        :param reco_energy: use reconstructed energy? (defualt True)
-        :type reco_energy: bool
         """
         if (hist_label == "default"):
             hist_label = self._label
