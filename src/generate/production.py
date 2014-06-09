@@ -7,6 +7,8 @@
 # Author A R Back 
 #
 # 15/05/2014 <ab571@sussex.ac.uk> : First revision
+# 06/06/2014 <ab571@sussex.ac.uk> : Refactored for storage of multiple 
+#                                   labelled histograms in memory
 #
 ###########################################################################
 from ROOT import TH1D
@@ -41,6 +43,9 @@ class Production(WriteSpectrum):
         :type path: str
         """
         super(Production, self).__init__(path)
+        if (self._label != None): # has been set
+            if (self._label.find("-Truth") >= 0):
+                self._label = self._label[:self._label.find("-Truth")]
         self._majorat_name = None
     def set_parameters(self):
         """ Method to initialise spectrum parameters for non MajoRat style
@@ -186,11 +191,18 @@ class Production(WriteSpectrum):
         hist_path = os.environ.get("MAJORAT_DATA") + "/hist_"\
             + self._majorat_name + self._ext
         return str(hist_path)
-    def fill_histogram(self):
+    def fill_histogram(self, hist_label="default"):
         """ Overloads SpectrumData.fill_histogram. Method to read ntuple,
         DS, extract total KE for each event and fill histogram.
-
+        
+        :param hist_label: histogram key in self._histograms
+        :type hist_label: str
         """
+        if (hist_label == "default"):
+            hist_label = self._label
+        histogram = self._histograms.get(hist_label)
+        assert isinstance(histogram, TH1D), \
+            "SpectrumData.fill_histogram: histogram is not a TH1D object"
         chain = TChain("output") # ntuple is always called output
         chain.Add(self._path)
         for event in chain:
@@ -214,16 +226,18 @@ if __name__ == "__main__":
     
     spectrum1 = Production(args.ntuple_file1)
     spectrum1.set_parameters()
+    hist_label = "default"
     append = False # Make new for first one
     always_remake = True # Make from scratch for first one
-    spectrum1.make_histogram(append, always_remake)
-    spectrum1.write_histogram()
+    spectrum1.make_histogram(hist_label, append, always_remake)
+    spectrum1.write_histograms()
     spectrum2 = Production(args.ntuple_file2)
     spectrum2.set_parameters()
+    hist_label = "default"
     append = True # Now we want to append to existing
-    spectrum2.make_histogram(append)
-    histogram = spectrum2.get_histogram()
+    spectrum2.make_histogram(hist_label, append)
+    histogram = spectrum2.get_histogram(hist_label)
     histogram.Draw()
     print "production.py: histogram contains", histogram.GetEntries(), "entries"
-    spectrum2.write_histogram()
+    spectrum2.write_histograms()
     raw_input("RETURN to exit")

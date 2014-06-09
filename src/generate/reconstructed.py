@@ -9,6 +9,8 @@
 # 31/01/2014 <ab571@sussex.ac.uk> : First revision
 # 29/04/2014 <ab571@sussex.ac.uk> : Now initialised with half life, as base
 #                                   class
+# 06/06/2014 <ab571@sussex.ac.uk> : Refactored for storage of multiple 
+#                                   labelled histograms in memory
 ###########################################################################
 from ROOT import TH1D
 from ROOT import TFile
@@ -18,6 +20,7 @@ import rat
 
 from write_spectrum import WriteSpectrum
 import constants
+import defaults
 
 import math
 
@@ -29,58 +32,37 @@ class Reconstructed(WriteSpectrum):
     def __init__(self, path, t_half):
         """ Initialises the class, extracts information from filename """
         super(Reconstructed, self).__init__(path, t_half)
-
-    def write_histogram(self, prefix="hist_"):
-        """ Writes the histogram that has been created to a separate Root file
+        if (self._label != None): # has been set
+            if (self._label.find("-Truth") >= 0):
+                self._label = self._label[:self._label.find("-Truth")]
+    def fill_histogram(self, hist_label="default"):
+        """ Overloads SpectrumData.fill_histogram, to read DS, extract
+        total KE for each event, then apply a gaussian smearing before
+        filling the histogram.
+        
         """
-        super(Reconstructed, self).write_histogram(prefix)
-
-    def get_histogram(self):
-        """ Overloads get_histogram() method so that it generates a gaussian
-        smeared histogram.
-        """
-        print self._prefix
-        energy_resolution = constants.snoplus.get("energy_resolution")
-        if (self._histogram == None):
-            if (self._prefix.find("hist") >= 0):
-                input_file = TFile(self._path, "READ")
-                input_file.ls()
-                self._histogram = input_file.Get(self._label)
-                print "Reconstructed.get_histogram: found saved histogram " \
-                    + self._label
-                self._histogram.SetDirectory(0)
-                input_file.Close()
-            else:
-                seed = 12345
-                random = TRandom3(seed)
-                self._histogram = TH1D(self._label, self._label, 30, 0.0, 3.0)
-                self._histogram.SetDirectory(0)
-                for ds, run in rat.dsreader(self._path):
-                    for iEV in range(0, ds.GetEVCount()):
-                        mc = ds.GetMC();
-                        KE = 0
-                        for particle in range (0, mc.GetMCParticleCount()):
-                            # Check they are electrons
-                            if (mc.GetMCParticle(particle).GetPDGCode() == 11):
-                                KE += mc.GetMCParticle(particle).GetKE()
-                        # Gausian smearing of events
-                        E_true = KE
-                        mu = E_true
-                        sigma = math.sqrt(E_true*energy_resolution)
-                        sigma /= energy_resolution
-                        E_reco = random.Gaus(mu, sigma)
-                        self._histogram.Fill(E_reco)
-            print "Integral of histogram = ", self._histogram.Integral()
-            print "Unscaled histogram = ", self._histogram_unscaled
-            if (self._histogram_unscaled == None):
-                self._histogram_unscaled = self._histogram.Clone()
-            print "Unscaled histogram = ", self._histogram_unscaled
-        else:
-            print ("SpectrumData.get_histogram: SpectrumData._histogram object "
-                   "already exists\n --> re-using!")
-        print self._histogram
-        return self._histogram
-
+        if (hist_label == "default"):
+            hist_label = self._label
+        histogram = self._histograms.get(hist_label)
+        assert isinstance(histogram, TH1D), \
+            "SpectrumData.fill_histogram: histogram is not a TH1D object"
+        energy_resolution = defaults.snoplus.get("energy_resolution")
+        seed = 12345
+        random = TRandom3(seed)
+        for ds, run in rat.dsreader(self._path):
+            for event in range(0, ds.GetEVCount()):
+                mc = ds.GetMC();
+                truth_energy = 0
+                for particle in range (0, mc.GetMCParticleCount()):
+                    # Check they are electrons
+                    if (mc.GetMCParticle(particle).GetPDGCode() == 11):
+                        truth_energy += mc.GetMCParticle(particle).GetKE()
+                # Gausian smearing of events
+                mu = truth_energy
+                sigma = math.sqrt(truth_energy*energy_resolution)
+                sigma /= energy_resolution
+                reconstructed_energy = random.Gaus(mu, sigma)
+                histogram.Fill(reconstructed_energy)
 
 if __name__ == "__main__":
     from ROOT import TCanvas
@@ -95,19 +77,37 @@ if __name__ == "__main__":
                                                   " the single (RAT-generated) "
                                                   "Root file specified"))
     parser.add_argument("root_file", help="path to RAT-generated Root file")
+    parser.add_argument("-b", "--bin_width", help="specify histogram bin width",
+                        type=float, default=0.02)
+    parser.add_argument("-s", "--save_image", help="save truth/reconstructed "
+                        "comparison as png", action="store_true")
     args = parser.parse_args()
     print args
-    print args.root_file
 
     t_half = constants.half_life.get("Xe136").get(0)
 
     spectrum = WriteSpectrum(args.root_file, t_half)
-    truth_hist = spectrum.get_histogram()
-    spectrum.write_histogram()
+    hist_label = "default"
+    always_remake = True
+    if (args.bin_width != 0.02):
+        truth_hist = spectrum.get_histogram(hist_label,
+                                            always_remake,
+                                            args.bin_width)
+    else:
+        truth_hist = spectrum.get_histogram(hist_label, always_remake)
+    spectrum.write_histograms()
 
     reco_spectrum = Reconstructed(args.root_file, t_half)
-    reco_hist = reco_spectrum.get_histogram()
-    reco_spectrum.write_histogram()
+    hist_label = "default"
+    always_remake = True
+    if (args.bin_width != 0.02):
+        reco_hist = reco_spectrum.get_histogram(hist_label,
+                                                always_remake,
+                                                args.bin_width)
+    else:
+        reco_hist = reco_spectrum.get_histogram(hist_label, 
+                                                always_remake)
+    reco_spectrum.write_histograms()
 
     title = "Truth/reconstructed comparison " + reco_spectrum._label
     stack = THStack(title, title)
@@ -120,13 +120,15 @@ if __name__ == "__main__":
     legend.AddEntry(truth_hist, truth_hist.GetTitle(), "l")
     legend.AddEntry(reco_hist, reco_hist.GetTitle(), "l")
 
-    c1 = TCanvas()
+    c1 = TCanvas("canvas", "canvas")
     c1.cd()
     stack.Draw("nostack")
     stack.GetXaxis().SetTitle("E (MeV)")
     stack.GetYaxis().SetTitle("Events")
     legend.Draw()
     c1.Draw()
-    c1.Print("truth_reco_comparison_n"+
-             str(reco_spectrum._spectral_index)+".png")
+    if args.save_image:
+        c1.Print("truth_reco_comparison_n"+
+                 str(reco_spectrum._spectral_index)+".png")
     raw_input("RETURN to exit")
+
