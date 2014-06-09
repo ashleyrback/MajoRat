@@ -194,7 +194,8 @@ class Production(WriteSpectrum):
         chain = TChain("output") # ntuple is always called output
         chain.Add(self._path)
         for event in chain:
-            self._histogram.Fill(event.energy)
+            if (event.energy != 0.0):
+                self._histogram.Fill(event.energy)
 
 if __name__ == "__main__":
     from ROOT import TCanvas
