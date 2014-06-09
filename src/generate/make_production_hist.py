@@ -24,6 +24,12 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--is_directory", help="use to specify that "
                         "the path supplied is a directory", 
                         action="store_true")
+    parser.add_argument("-z", "--zero_energy", help="include zero energy "
+                        "events", action="store_true")
+    parser.add_argument("-p", "--reco_pos", help="use reconstructed position "
+                        "in FV cut", action="store_true")
+    parser.add_argument("-n", "--nhit_energy", help="use energy calculated "
+                        "from nhits", action="store_true")
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-a", "--append", help="append to existing histogram",
                        action="store_true")
@@ -46,16 +52,34 @@ if __name__ == "__main__":
     for file in file_list:
         spectrum = Production(file)
         spectrum.set_parameters()
-        if args.is_directory: # default is to always_remake for first file
-                              # then append for subsequent files
-            if first_file:
-                first_file = False
-                append = False
-                always_remake = True
-                spectrum.make_histogram(append, always_remake)
-            else:
-                append = True
-                spectrum.make_histogram(append)
-        else: # use command line options set
-            spectrum.make_histogram(args.append, args.always_remake)
-        spectrum.write_histogram()
+        # make list of histogram labels
+        hist_labels = [spectrum._label, 
+                       spectrum._label+"-no_fv_cut"] # produced by default
+        if args.reco_pos:
+            hist_labels.append(spectrum._label+"-reco_pos")
+        if args.nhit_energy:
+            hist_labels.append(spectrum._label+"-nhit_energy")
+            hist_labels.append(spectrum._label+"-reco_pos-nhit_energy")
+        if args.zero_energy:
+            zero_energy_labels = []
+            for hist_label in hist_labels:
+                hist_label += "-zero_energy"
+                zero_energy_labels.append(hist_label)
+            hist_labels += zero_energy_labels
+        print hist_labels
+        for hist_label in hist_labels:
+            if args.is_directory: # default is to always_remake for first file
+                                  # then append for subsequent files
+                if first_file:
+                    first_file = False
+                    append = False
+                    always_remake = True
+                    spectrum.make_histogram(hist_label, append, always_remake)
+                else:
+                    append = True
+                    spectrum.make_histogram(hist_label, append)
+            else: # use command line options set
+                spectrum.make_histogram(hist_label,
+                                        args.append,
+                                        args.always_remake)
+        spectrum.write_histograms()

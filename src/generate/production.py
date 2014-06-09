@@ -22,9 +22,11 @@ import rat
 
 from write_spectrum import WriteSpectrum
 import constants
+import defaults
 import isotope
 import generators
 import spectrum_utils
+import list_manips
 
 import math
 import re
@@ -197,16 +199,57 @@ class Production(WriteSpectrum):
         
         :param hist_label: histogram key in self._histograms
         :type hist_label: str
+        :param reco_pos: use reconstructed radius? (default --> use Truth)
+        :type reco_pos: bool
+        :param reco_energy: use reconstructed energy? (defualt True)
+        :type reco_energy: bool
         """
         if (hist_label == "default"):
             hist_label = self._label
+        apply_fv_cut = True # by default
+        reconstruct_position = False # by default
+        use_nhit_energy = False # by default
+        include_zero_energy_events = False # by default
+        ntuple_options = hist_label.split("-")
+        if (list_manips.item_containing("no_fv_cut", ntuple_options) != None):
+            apply_fv_cut = False
+        if (list_manips.item_containing("reco_pos", ntuple_options) != None):
+            reconstruct_position = True
+        if (list_manips.item_containing("nhit_energy", ntuple_options) != None):
+            use_nhit_energy = True
+        if (list_manips.item_containing("zero_energy", ntuple_options) != None):
+            include_zero_energy_events = True
         histogram = self._histograms.get(hist_label)
         assert isinstance(histogram, TH1D), \
             "SpectrumData.fill_histogram: histogram is not a TH1D object"
         chain = TChain("output") # ntuple is always called output
         chain.Add(self._path)
         for event in chain:
-            histogram.Fill(event.energy)
+            if apply_fv_cut:
+                if reconstruct_position:
+                    pos_x = event.posx
+                    pos_y = event.posy
+                    pos_z = event.posz
+                else:
+                    pos_x = event.mcPosx
+                    pos_y = event.mcPosy
+                    pos_z = event.mcPosz
+                radius = math.fabs(math.sqrt(pos_x**2+pos_y**2+pos_z**2))
+                if use_nhit_energy:
+                    energy = event.nhits / defaults.snoplus.get\
+                        ("energy_resolution")
+                else:
+                    energy = event.energy
+                fv_radius = defaults.snoplus.get("fv_radius")
+                fv_radius *= 1000 # convert to mm
+                if include_zero_energy_events:
+                    if (radius < fv_radius):
+                        histogram.Fill(energy)
+                else:
+                    if (radius < fv_radius) and (energy > 0.0):
+                        histogram.Fill(energy)
+            else:
+                histogram.Fill(event.energy)
 
 if __name__ == "__main__":
     from ROOT import TCanvas
