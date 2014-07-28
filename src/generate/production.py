@@ -62,7 +62,7 @@ class Production(WriteSpectrum):
         self._majorat_name += "_" + self._n_events
         assert (self._options != None), "Production.set_parameters: ERROR "\
             "self._options = None\n --> Parameters already initialised in "\
-            "SpectrumData.set_parameters_from_filename()"
+            "Production.set_parameters_from_filename()"
         option = iter(self._options)
         first = option.next()
         first = first[first.find("TeLoaded")+len("TeLoaded"):]

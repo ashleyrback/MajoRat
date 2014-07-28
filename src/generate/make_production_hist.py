@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# make_python_header.py
+# make_production_hist.py
 #
 # Script to process production ntuples and generate spectra
 #
