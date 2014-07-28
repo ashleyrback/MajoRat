@@ -46,6 +46,7 @@ import re
 import inspect
 import os
 import unittest
+import sys
 
 class SpectrumData(object):
     """ Base class, provides containers for spectrum data. """
@@ -133,12 +134,12 @@ class SpectrumData(object):
                 type_ = "nue"
             # Assume energy range as default
             self._generator = generators.Solar(isotope_name, type_)
-            self._label = self._generator.get_isotope()
+            self._label = self._generator.get_isotope().get_name()
         elif (generator == "decaychain"):
             isotope_name = option.next()
             # Assume energy range as default
             self._generator = generators.DecayChain(isotope_name)
-            self._label = self._generator.get_isotope()
+            self._label = self._generator.get_isotope().get_name()
         elif (generator == "decay0"):
             self.set_decay0_options(option)
         else:
@@ -164,28 +165,54 @@ class SpectrumData(object):
             isotope_name = option.next()
         if (type_ == "backg"):
             self._generator = generators.Backg(isotope_name)
-            self._label = self._generator.get_isotope()
+            self._label = self._generator.get_isotope().get_name()
         elif (type_ == "2beta"):
-            if (isotope_name == "Te130"): # Assume we want SNO+ specific instance
-                isotope_ = isotope.SNOPlusTe(isotope_name)
-            else: # Create standard Isotope instance
-                isotope_ = isotope.Isotope(isotope_name)
             temp_option_1 = option.next()
             try:
                 temp_option_2 = option.next()
             except StopIteration:
                 # temp_option_1 is last parameter --> *mode*
                 mode = float(temp_option_1)
-                self._generator = generators.TwoBeta(isotope_, mode)
-            level = float(temp_option_1)
-            mode = float(temp_option_2)
+                self._generator = generators.TwoBeta(isotope_name, mode)
+            level = int(temp_option_1)
+            mode = int(temp_option_2)
             e_lo = float(option.next().replace("-","."))
             e_hi = float(option.next().replace("-","."))
-            self._generator = generators.TwoBeta(isotope_, mode, level,
+            self._generator = generators.TwoBeta(isotope_name, mode, level,
                                                  type_, e_lo, e_hi)
             self._spectral_index = spectrum_utils.get_spectral_index\
             (self._generator.get_mode())
             self._label = spectrum_utils.get_label(self._spectral_index)
+    def set_e_lo(self, e_lo):
+        """ Setter method allowing you to change the default lower energy
+        limit
+        
+        :param e_lo: value to set as lower limit on energy
+        :type e_lo: float
+        """
+        assert (self._generator != None), "SpectrumData.set_e_lo: error - "\
+            "generator is not set"
+        self._generator.set_e_lo(e_lo)
+    def set_e_hi(self, e_hi):
+        """ Setter method allowing you to change the default lower energy
+        limit
+        
+        :param e_hi: value to set as lower limit on energy
+        :type e_hi: float
+        """
+        assert (self._generator != None), "SpectrumData.set_e_hi: error - "\
+            "generator is not set"
+        self._generator.set_e_hi(e_hi)
+    def get_isotope(self):
+        """ Getter moethod to access isotope object contained within 
+        SpectrumData
+        
+        :returns: self._generator._isotope
+        :rtype: isotope.Isotope (or derived class)
+        """
+        assert (self._generator != None), "SpectrumData.set_e_hi: error - "\
+            "generator is not set"
+        return self._generator.get_isotope()
     def make_histogram(self, hist_label="default", 
                        append=False, 
                        always_remake=False,
@@ -350,60 +377,50 @@ class SpectrumData(object):
         except AssertionError as detail:
             print "SpectrumData.get_unscaled_histogram: ERROR", detail
         return histogram
-    def get_number_nuclei(self):
-        """ Method to return the number of nuclei. The calculation of
-        number of nuclei is dependent on the object type of self._isotope.
-        This method checks the object type of self._isotope, then
-        calculates the number of nuclei by the appropriate method. Returns
-        number of nuclei.
-        """
-        if isinstance(self._generator.get_isotope(), isotope.SNOPlusTe):
-            number_nuclei = self._generator.get_isotope().get_number_nuclei\
-                (defaults.snoplus.get("fv_radius"))
-        else:
-            number_nuclei = self._generator.get_isotope().get_number_nuclei\
-                (constants.isotope_mass.get\
-                     (self._generator.get_isotope().get_name()))
-        return number_nuclei
-    def set_events_by_t_half(self, t_half="default", livetime="default"):
-        """ Method that allows you to set self._events by half life. Assumes
-        default number of nuclei.
-        
-        :param livetime: livetime in years
-        :type livetime: float
-        :param t_half: half life in years (default = self._t_half)
-        :type t_half: float
-        """
-        if (livetime == "default"):
-            livetime = defaults.livetime_general
-        if (t_half == "default"):
-            t_half = self._t_half
-        assert (self._t_half != None),\
-            "SpectrumData.set_events_by_t_half: ERROR t_half = None"
-        self._events = self._generator.get_isotope().get_decays_from_t_half\
-            (t_half, livetime)
-        print "SpectrumData.set_events_by_t_half: number of events set at",\
-            self._events
-    def set_events_by_mass(self, effective_mass, livetime="default"):
-        """ Method that allows you to set self._events by effective mass.
-        Assumes default number of nuclei.
+    def get_histogram_ndof(self, hist_label="default"):
+        """ Get the number of degrees of freedom for a spectrum histogram
 
-        :param effective_mass: effective double beta mass in eV (no default)
-        :type effective_mass: float
-        :param livetime: livetime in years
-        :type livetime: float
+        :param hist_label: histogram key in self._unscaled_histograms
+        :type hist_label: str
+        :returns: number of degrees of freedom
+        :rtype: int
         """
-        if (livetime == "default"):
-            livetime = defaults.livetime_general
-        self._events = self._generator.get_isotope().get_decays_from_mass\
-            (effective_mass, livetime)
-        print "SpectrumData.set_events_by_mass: number of events set at",\
-            self._events
+        if (hist_label == "default"):
+            hist_label = self._label
+        histogram = self.get_histogram(hist_label)
+        nonzero_bins = 0
+        n_bins = histogram.GetNbinsX()
+        for bin_ in range(0, n_bins):
+            bin_content = histogram.GetBinContent(bin_)
+            if (bin_content > 0.0):
+                nonzero_bins += 1
+        # Number of degrees of freedom is the number of bins that contribute
+        # minus one!
+        ndof = nonzero_bins - 1
+        return ndof
     def scale_histogram(self, scaling_factor,
                         hist_label="default",
                         e_lo="default", 
                         e_hi="default"):
         """ Method for scaling any histogram by a scaling factor.
+
+        NOTE:// methods for specific types of histogram scaling are now 
+        depriciated - since there are too many different ways you might
+        want to scale a histogram. The preferred way to scale histograms
+        is now to get the Isotope (or derived) object and set that up as
+        required and/or use an RoIUtils object to scale by specific region.
+
+        For example to scale a 0nu spectrum by effective mass:
+        
+            spectrum = SpectrumData(filename)
+            spectrum_isotope = spectrum.get_isotope()
+            spectrum_isotope.set_scintillator_masses()
+            spectrum_isotope.set_number_nuclei(spectrum_isotope.get_mass())
+            zero_nu = spectrum_isotope.get_zero_nu()
+            spectrum_isotope.set_effective_mass(zero_nu.half_life_to_mass
+                (t_half))
+            spectrum_isotope.set_counts_by_mass()
+            spectrum.scale_histogram(spectrum_isotope.get_counts())
         
         :param scaling_factor: proposed integral of histogram after scaling
         :type scaling_factor: float
@@ -418,7 +435,7 @@ class SpectrumData(object):
         if (hist_label == "default"):
             hist_label = self._label
         histogram = self.get_histogram(hist_label)
-        if (e_lo == "default") or (e_hi == "default"):
+        if (e_lo == "default") and (e_hi == "default"):
             full_spectrum = True
         n_bins = histogram.GetNbinsX()
         # work out mean bin width
@@ -450,10 +467,107 @@ class SpectrumData(object):
             print " -->", histogram.Integral(),"events"
         else:
             print " -->", histogram.Integral(from_bin, to_bin),"events in range"
+    def get_spectrum_counts(self, hist_label="default",
+                            e_lo="default", 
+                            e_hi="default"):
+        """ Get the number of counts in the full spectrum or a specified 
+        range
+
+        :param hist_label: histogram key in self._histograms
+        :type hist_label: str
+        :param e_lo: lower energy integration limit
+        :type e_lo: float
+        :param e_hi: upper energy integration limit
+        :type e_hi: float
+        :returns: spectrum_counts
+        :rtype: float
+        """
+        full_spectrum = False
+        if (hist_label == "default"):
+            hist_label = self._label
+        histogram = self.get_histogram(hist_label)
+        if (e_lo == "default") and (e_hi == "default"):
+            full_spectrum = True
+        n_bins = histogram.GetNbinsX()
+        # work out mean bin width
+        bin_width_sum = 0.0
+        for bin_ in range(0, n_bins):
+            bin_width_sum += histogram.GetBinWidth(bin_)
+        bin_width = bin_width_sum / n_bins
+        if not(full_spectrum):
+            # set integration limits
+            from_bin = int(e_lo/bin_width)
+            to_bin = int(e_hi/bin_width)        
+        if (full_spectrum):
+            spectrum_counts = histogram.Integral()
+        else:
+            spectrum_counts = histogram.Integral(from_bin, to_bin)
+        return spectrum_counts
+
+################################################################################
+# DEPRECIATED METHODS
+################################################################################
+    def get_number_nuclei(self):
+        """ *** DEPRECIATED METHOD ***
+        
+        Method to return the number of nuclei. The calculation of
+        number of nuclei is dependent on the object type of self._isotope.
+        This method checks the object type of self._isotope, then
+        calculates the number of nuclei by the appropriate method. Returns
+        number of nuclei.
+        """
+        if isinstance(self._generator.get_isotope(), isotope.SNOPlusTe):
+            number_nuclei = self._generator.get_isotope().get_number_nuclei\
+                (defaults.snoplus.get("fv_radius"))
+        else:
+            number_nuclei = self._generator.get_isotope().get_number_nuclei\
+                (constants.isotope_mass.get\
+                     (self._generator.get_isotope().get_name()))
+        return number_nuclei
+    def set_events_by_t_half(self, t_half="default", livetime="default"):
+        """ *** DEPRECIATED METHOD ***
+
+        Method that allows you to set self._events by half life. Assumes
+        default number of nuclei.
+        
+        :param livetime: livetime in years
+        :type livetime: float
+        :param t_half: half life in years (default = self._t_half)
+        :type t_half: float
+        """
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
+        if (t_half == "default"):
+            t_half = self._t_half
+        assert (self._t_half != None),\
+            "SpectrumData.set_events_by_t_half: ERROR t_half = None"
+        self._events = self._generator.get_isotope().get_decays_from_t_half\
+            (t_half, livetime)
+        print "SpectrumData.set_events_by_t_half: number of events set at",\
+            self._events
+    def set_events_by_mass(self, effective_mass, livetime="default"):
+        """ *** DEPRECIATED METHOD ***
+
+        Method that allows you to set self._events by effective mass.
+        Assumes default number of nuclei.
+
+        :param effective_mass: effective double beta mass in eV (no default)
+        :type effective_mass: float
+        :param livetime: livetime in years
+        :type livetime: float
+        """
+        if (livetime == "default"):
+            livetime = defaults.livetime_general
+        self._events = self._generator.get_isotope().get_decays_from_mass\
+            (effective_mass, livetime)
+        print "SpectrumData.set_events_by_mass: number of events set at",\
+            self._events
     def scale_by_t_half(self, t_half="default",
                         hist_label="default",
                         livetime="default"):
-        """ Scaling is not done automatically in the constructor. This
+        """ *** DEPRECIATED METHOD ***
+
+        Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events,
         calculated from the half life.
         
@@ -475,7 +589,9 @@ class SpectrumData(object):
     def scale_by_mass(self, effective_mass,
                       hist_label="default",
                       livetime="default"):
-        """ Scaling is not done automatically in the constructor. This
+        """ *** DEPRECIATED METHOD ***
+
+        Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events,
         calculated from the effective mass.
         
@@ -496,7 +612,9 @@ class SpectrumData(object):
                         hist_label="default",
                         e_lo="default",
                         e_hi="default"):
-        """ Scaling is not done automatically in the constructor. This
+        """ *** DEPRECIATED METHOD ***
+
+        Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events
         supplied.
 
@@ -514,7 +632,9 @@ class SpectrumData(object):
         self.scale_histogram(events, hist_label, e_lo, e_hi)
     def scale_by_roi_events(self, events, roi,
                             hist_label="default"):
-        """ Scaling is not done automatically in the constructor. This
+        """ *** DEPRECIATED METHOD ***
+
+        Scaling is not done automatically in the constructor. This
         method scales the histogram according to the number of events
         supplied, in the ROI supplied
 
@@ -552,10 +672,20 @@ if __name__ == "__main__":
     t_half = 5.0e25 # years # KLZ limit from Gando et al.
 
     spectrum = SpectrumData(args.root_file, t_half)
-    spectrum.scale_by_t_half(0.0)
-    print spectrum._events
-    spectrum.scale_by_mass(0.0)
-    print spectrum._events
+    spectrum_isotope = spectrum.get_isotope()
+    print spectrum_isotope
+    print spectrum_isotope.get_name()
+    spectrum_isotope.set_scintillator_masses()
+    spectrum_isotope.set_number_nuclei(spectrum_isotope.get_mass())
+    spectrum_isotope.set_half_life(t_half)
+    spectrum_isotope.set_counts()
+    spectrum.scale_histogram(spectrum_isotope.get_counts())
+    print spectrum.get_spectrum_counts()
+    zero_nu = spectrum_isotope.get_zero_nu()
+    spectrum_isotope.set_effective_mass(zero_nu.half_life_to_mass(t_half))
+    spectrum_isotope.set_counts_by_mass()
+    spectrum.scale_histogram(spectrum_isotope.get_counts())
+    print spectrum.get_spectrum_counts()
     histogram = spectrum.get_histogram()
     histogram.Draw()
     raw_input("RETURN to exit")

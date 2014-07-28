@@ -82,7 +82,16 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print args
 
+    t_half = 5.0e25 # years # KLZ limit from Gando et al.
+
     spectrum = WriteSpectrum(args.root_file)
+    spectrum_isotope = spectrum.get_isotope()
+    spectrum_isotope.set_scintillator_masses()
+    spectrum_isotope.set_number_nuclei(spectrum_isotope.get_mass())
+    zero_nu = spectrum_isotope.get_zero_nu()
+    spectrum_isotope.set_effective_mass(zero_nu.half_life_to_mass(t_half))
+    spectrum_isotope.set_counts_by_mass()
+    spectrum.scale_histogram(spectrum_isotope.get_counts())
     histogram = spectrum.get_histogram()
     histogram.Draw()
     raw_input("RETURN to exit")

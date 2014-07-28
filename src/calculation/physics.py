@@ -21,34 +21,62 @@ class DoubleBeta(object):
     """ Base class designed as a utility to handle an isotope's double beta
     decay properties, e.g. lifetime.
     """
-    def __init__(self, isotope="Te130"):
+    def __init__(self, isotope_name="Te130",
+                 t_half_min_scaling=1.0e-6,  # Assumed lower limit 10^-6 * 2nu
+                 t_half_max_scaling=1.0e15): # Assumed upper limit 10^15 * 2nu
         """ Initialised for isotope name supplied (Te130 by default), with
         some useful nuclear factors defined.
+        
+        :param isotope_name: name of isotope
+        :type isotope_name: float
+        :param t_half_min_scaling: scaling factor for lower limit on t_half
+        :type t_half_min_scaling: float
+        :param t_half_max_scaling: scaling factor for upper limit on t_half
+        :type t_half_max_scaling: float
         """
-        self._phase_space = constants.phase_space.get(isotope).get("2nu")
-        self._matrix_element = constants.matrix_element.get(isotope).\
+        self._phase_space = constants.phase_spaces.get(isotope_name).get("2nu")
+        self._matrix_element = constants.matrix_elements.get(isotope_name).\
             get("2nu")
+        self._t_half_min = self.get_half_life() * t_half_min_scaling
+        self._t_half_max = self.get_half_life() * t_half_max_scaling
     def get_half_life(self):
-        """ Method to return the two neutrino half life (yrs) """
+        """ 
+        :returns: SM double beta decay half life (years)
+        :rtype: float
+        """
         t_half = 1.0 / (self._phase_space*math.pow(self._matrix_element, 2))
         return t_half
+    def get_t_half_min(self):
+        """
+        :returns: lower bound on double beta decay half life
+        :rtype: float
+        """
+        return self._t_half_min
+    def get_t_half_max(self):
+        """
+        :returns: lower bound on double beta decay half life
+        :rtype: float
+        """
+        return self._t_half_max
 class ZeroNuConverter(object):
     """ Base class designed as a utility to handle conversion between 
     different isotope properties, e.g. converting from lifetime to 
     effective double beta neutrino mass, or vice versa.
     """
-    def __init__(self, isotope="Te130",
+    def __init__(self, isotope_name="Te130",
                  t_half_min_scaling=1.0e-6,  # Assumed lower limit 10^-6 * 2nu
                  t_half_max_scaling=1.0e15): # Assumed upper limit 10^15 * 2nu
         """ Initialised for isotope name supplied (Te130 by default), with
         some useful nuclear factors and constants defined.
         """
-        two_nu = DoubleBeta(isotope)
-        self._two_nu_t_half = two_nu.get_half_life();
-        self._t_half_min = self._two_nu_t_half*t_half_min_scaling
-        self._t_half_max = self._two_nu_t_half*t_half_max_scaling
-        self._phase_space = constants.phase_space.get(isotope).get("0nu")
-        self._matrix_element = constants.matrix_element.get(isotope).get("0nu")
+        two_nu = DoubleBeta(isotope_name,
+                            t_half_min_scaling,
+                            t_half_max_scaling)
+        self._t_half_min = two_nu.get_t_half_min()
+        self._t_half_max = two_nu.get_t_half_max()
+        self._phase_space = constants.phase_spaces.get(isotope_name).get("0nu")
+        self._matrix_element = constants.matrix_elements.get(isotope_name).\
+            get("0nu")
         self._coupling_constant = constants.coupling_constant
         self._conversion_factor = None
     def set_conversion_factor(self):
@@ -146,5 +174,3 @@ if __name__ == "__main__":
         + str(effective_mass_max)
     print "Te130: half life (max) = " + str(t_half_max) + ", effective mass (min) = "\
         + str(effective_mass_min)
-
-    

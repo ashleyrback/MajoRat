@@ -46,7 +46,8 @@ class Reconstructed(WriteSpectrum):
         histogram = self._histograms.get(hist_label)
         assert isinstance(histogram, TH1D), \
             "SpectrumData.fill_histogram: histogram is not a TH1D object"
-        energy_resolution = defaults.snoplus.get("energy_resolution")
+        energy_resolution = defaults.analysis.get("production_label").\
+            get(self._rat_release).get("energy_resolution")
         seed = 12345
         random = TRandom3(seed)
         for ds, run in rat.dsreader(self._path):
@@ -84,7 +85,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print args
 
-    t_half = constants.half_life.get("Xe136").get(0)
+    t_half = constants.zero_nu_lifetimes.get("Xe136").get(0)
 
     spectrum = WriteSpectrum(args.root_file, t_half)
     hist_label = "default"
