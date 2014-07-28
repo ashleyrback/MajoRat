@@ -183,6 +183,27 @@ class SpectrumData(object):
             self._spectral_index = spectrum_utils.get_spectral_index\
             (self._generator.get_mode())
             self._label = spectrum_utils.get_label(self._spectral_index)
+    def change_name(self, original, new):
+        """ Method to update self._name if changes to parameters are made
+
+        :param original: value of name element in orignal name
+        :type: str
+        :param new: new value of name element
+        :type: str
+        """
+        print original
+        print new
+        name_elements = self._name.split("_")
+        print name_elements
+        element = list_manips.item_containing(original, name_elements)
+        print element
+        name_elements[element] = new
+        new_name = ""
+        for element in name_elements:
+            new_name += element + "_"
+        new_name = new_name[:-1]
+        print "SpectrumData.change_name: warning - changing name to", new_name
+        self._name = new_name
     def set_e_lo(self, e_lo):
         """ Setter method allowing you to change the default lower energy
         limit
@@ -192,6 +213,9 @@ class SpectrumData(object):
         """
         assert (self._generator != None), "SpectrumData.set_e_lo: error - "\
             "generator is not set"
+        original = str(self._generator.get_e_lo()).replace(".", "-")
+        new = str(e_lo).replace(".", "-")
+        self.change_name(original, new)
         self._generator.set_e_lo(e_lo)
     def set_e_hi(self, e_hi):
         """ Setter method allowing you to change the default lower energy
@@ -202,6 +226,9 @@ class SpectrumData(object):
         """
         assert (self._generator != None), "SpectrumData.set_e_hi: error - "\
             "generator is not set"
+        original = str(self._generator.get_e_hi()).replace(".", "-")
+        new = str(e_hi).replace(".", "-")
+        self.change_name(original, new)
         self._generator.set_e_hi(e_hi)
     def get_isotope(self):
         """ Getter moethod to access isotope object contained within 
