@@ -10,12 +10,15 @@
 # 21/03/2014 <ab571@sussex.ac.uk> : Added inheritance from SpectrumData 
 #                                   class
 ###########################################################################
-from memory_profiler import profile
+from ROOT import TFile
+
 from spectrum_data import SpectrumData
 import file_manips
+
 import re
 import subprocess
 import socket
+import sys
 
 line_to_edit = re.compile(r"^#/.*") # line beginning with "#/"
 
@@ -23,7 +26,6 @@ class GenerateSpectrum(SpectrumData):
     """ Class to generate RAT montecarlo for use with other scripts that
     inherit from the SpectrumData class.
     """
-    @profile
     def __init__(self, path, template):
         """ Use __init__ method of SpectrumData class. GenerateSpectrum class is 
         initiated by supplying the full path to the root file that you wish to
@@ -31,14 +33,12 @@ class GenerateSpectrum(SpectrumData):
         """
         super(GenerateSpectrum, self).__init__(path)
         self._template = template
-    @profile
     def read_template(self):
         """ Reads lines from template macro. Returns lines in a list. """
         template_file = open(self._template)
         template = template_file.readlines()
         template_file.close()
         return template
-    @profile
     def edit_template(self, template):
         """ Edits template macro based on parameters from the Root filename
         used to initialise the class.
@@ -58,28 +58,36 @@ class GenerateSpectrum(SpectrumData):
                     parts = line.split(" ")
                     new_line = parts[0] + " " + parts[1] + " "
                     parts2 = parts[2].split(":")
-                    new_line += self._generator + ":" + parts2[1]
+                    new_line += self._generator.get_generator() + ":" + parts2[1]
                     new_line += "\n"
                     line = new_line
                 if line.find("/generator/vtx/set") >= 0:
                     parts = line.split(" ")
                     new_line = parts[0] + " "
-                    new_line += self._type + " "
-                    new_line += self._isotope + " "
-                    new_line += str(self._level) + " "
-                    new_line += str(self._mode) + " "
-                    new_line += str(self._E_lo) + " "
-                    new_line += str(self._E_hi)
+                    new_line += self._generator.get_type() + " "
+                    new_line += self._generator.get_isotope().get_name() + " "
+                    new_line += str(int(self._generator.get_level())) + " "
+                    new_line += str(int(self._generator.get_mode())) + " "
+                    new_line += str(self._generator.get_e_lo()) + " "
+                    new_line += str(self._generator.get_e_hi())
                     new_line += "\n"
                     line = new_line
+                    try:
+                        assert(re.match\
+                                   (r"^.*\s[0-9]{1,2}?\s[0-9]{1,2}?\s"
+                                    "[0-9]+\.[0-9]+\s[0-9]+\.[0-9]+$", line)\
+                                   != None),\
+                                   "/generator/vtx/set line has incorrect format"
+                    except AssertionError as detail:
+                        print "generate_spectrum.edit_template: error,", detail
+                        sys.exit(1)
                 if line.find("/rat/run/start") >= 0:
                     parts = line.split(" ")
-                    new_line = parts[0] + " " + str(self._N_evts)
+                    new_line = parts[0] + " " + str(self._n_events)
                     new_line += "\n"
                     line = new_line
             macro.append(line)
         return macro
-    @profile
     def write_macro(self, macro, mac_dir=""):
         """ Writes macro based on edited macro template """
         if (mac_dir == ""):
@@ -90,7 +98,6 @@ class GenerateSpectrum(SpectrumData):
         for line in macro:
             mac_file.write(line)
         mac_file.close()
-    @profile
     def run_rat(self):
         """ Runs rat using the macro created in write_macro """
         try:
@@ -108,7 +115,6 @@ class GenerateSpectrum(SpectrumData):
             print "GenerateSpectrum.run_rat: error", detail, "not set"
             print " --> source correct environment scripts before running!"
             sys.exit(1)
-    @profile
     def clean_up(self):
         """ Move DQ outputs to their appropriate directory """
         try:
@@ -126,6 +132,13 @@ class GenerateSpectrum(SpectrumData):
                 hostname = socket.gethostname()
                 is_log =  re.search(r"^rat\."+hostname+r"\.[0-9]+\.log$", file)
                 if is_data:
+                    try:
+                        root_file = TFile(file)
+                        tree = root_file.Get("T")
+                        tree.ls()
+                    except ReferenceError as detail:
+                        "generate_spectrum.clean_up: error in TFile,", detail
+                        sys.exit(1)
                     file_manips.copy_file(os.path.join(root, file), data_dir)
                 elif is_plot:
                     file_manips.copy_file(os.path.join(root, file), plots_dir)

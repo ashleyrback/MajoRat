@@ -75,6 +75,8 @@ class Production(WriteSpectrum):
         while (re.search(r"^r[0-9]+$", next_option) == None):
             if (next_option == "Solar"):
                 macro_name += "_" + "solar"
+            elif (next_option == "Bi212po212"):
+                macro_name += "_" + "Bi212Po212"
             else:
                 macro_name += "_" + next_option
             next_option = option.next()

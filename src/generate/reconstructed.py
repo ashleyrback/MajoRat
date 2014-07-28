@@ -80,6 +80,10 @@ if __name__ == "__main__":
     parser.add_argument("root_file", help="path to RAT-generated Root file")
     parser.add_argument("-b", "--bin_width", help="specify histogram bin width",
                         type=float, default=0.02)
+    parser.add_argument("-l", "--e_lo", help="change default lower energy limit",
+                        type=float, default=None)
+    parser.add_argument("-h", "--e_hi", help="change default higher energy limit",
+                        type=float, default=None)
     parser.add_argument("-s", "--save_image", help="save truth/reconstructed "
                         "comparison as png", action="store_true")
     args = parser.parse_args()
@@ -88,6 +92,10 @@ if __name__ == "__main__":
     t_half = constants.zero_nu_lifetimes.get("Xe136").get(0)
 
     spectrum = WriteSpectrum(args.root_file, t_half)
+    if (args.e_lo != None):
+        spectrum.set_e_lo(args.e_lo)
+    if (args.e_hi != None):
+        spectrum.set_e_hi(args.e_hi)
     hist_label = "default"
     always_remake = True
     if (args.bin_width != 0.02):
