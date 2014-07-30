@@ -114,63 +114,68 @@ class SetLimit(object):
                 else:
                     print "SetLimit.set_limit: set limit at " + str(self._limit) + "meV"
                     no_limit_set = False
-    def set_t_half_limit(self, required_delta_chi_squared="default",
-                         outer_t_half_lo="default",
-                         outer_t_half_hi="default",
-                         outer_t_half_step="default"):
-        """ Outer loop. Iterrates over values of effective mass, producing a
-        plot of delta-chi-squared vs. effective mass for each. The y-intercept
-        (i.e. value of bin at 0 meV effective mass) is noted. The limit is the
-        the last effective mass value before a delta-chi-squared that falls the
-        required-delta-chi-squared threshold.
-
-        :param required_delta_chi_squared: threshold for required CL
-        :type required_delta_chi_squared: float
-        :param outer_t_half_lo: outer loop lower t_half limit
-        :type outer_t_half_lo: float
-        :param outer_t_half_hi: outer loop upper t_half limit
-        :type outer_t_half_hi: float
-        :param outer_t_half_step: step size to use in iteration
-        :type outer_t_half_step:
+    def set_t_half_limit(self,
+                         t_half_lo="default",
+                         t_half_hi="default",
+                         t_half_step="default",
+                         required_delta_chi_squared="default"):
         """
+        :param t_half_lo: t_half lower limit
+        :type t_half_lo: float
+        :param t_half_hi: t_half upper limit
+        :type t_half_hi: float
+        :param t_half_step: t_half step
+        :type t_half_step: float
+        :param required_delta_chi_squared: e.g. (2.71 = 90 % CL,
+                                                 25.0 = 5 sigma)
+        :type required_delta_chi_squared: float
+        :returns: t_half at limit
+        :rtype: float
+        """
+        if (t_half_lo == "default"):
+            t_half_lo = defaults.ll_analysis.get("inner_t_half_lo")
+        assert (t_half_lo != 0.0),\
+            "SetLimit.get_t_half_limit: error inner_t_half_lo == 0.0"
+        if (t_half_hi == "default"):
+            t_half_hi = defaults.ll_analysis.get("inner_t_half_hi")
+        if (t_half_step == "default"):
+            t_half_step = defaults.ll_analysis.get("inner_t_half_step")
         if (required_delta_chi_squared == "default"):
             required_delta_chi_squared = defaults.ll_analysis.get\
                 ("delta_chi_squared")
-        if (outer_t_half_lo == "default"):
-            outer_t_half_lo = defaults.ll_analysis.get("outer_t_half_lo")
-        if (outer_t_half_hi == "default"):
-            outer_t_half_hi = defaults.ll_analysis.get("outer_t_half_hi")
-        if (outer_t_half_step == "default"):
-            outer_t_half_step = defaults.ll_analysis.get("outer_t_half_step")
-        no_limit_set = True
-        for t_half in my_range(outer_t_half_lo,
-                               outer_t_half_hi,
-                               outer_t_half_step):
-            hist_label = self._signal._label + "-reco_pos"
-            self._signal.scale_by_t_half(t_half, 
-                                         hist_label, 
-                                         self._livetime)
-            signal_hist = self._signal.get_histogram(hist_label)
-            signal_hist.SetDirectory(0)
-            assert (type(signal_hist) is TH1D),\
-                "SetLimit.set_limit: signal_hist is not of type TH1D"
-            signal_hist.SetTitle(self._signal._label + "-" + \
-                                     str(int(t_half/1.0e24)) + " 10^{24}yr")
-            sum_hist = self._sum_background_hist + signal_hist
-            sum_hist.SetDirectory(0)
-            assert (type(sum_hist) is TH1D),\
-                "SetLimit.set_limit: sum_hist is not of type TH1D"
-            sum_hist.SetTitle("Sum, " + self._signal._label + "-" + \
-                                  str(int(t_half/1.0e24)) + " 10^{24}yr")
-            delta_chi_squared = self.get_delta_chi_squared_t_half(sum_hist)
-            if no_limit_set:
-                if (delta_chi_squared >= required_delta_chi_squared):
-                    self._t_half_limit = t_half
-                    self.set_signal_hist(signal_hist)
-                    self.set_sum_hist(sum_hist)
-                else:
-                    print "SetLimit.set_limit: set limit at " + str(self._limit) + "meV"
-                    no_limit_set = False
+        sum_hist = self._sum_background_hist # just background for the moment
+        sum_hist.SetDirectory(0)
+        assert (type(sum_hist) is TH1D),\
+            "SetLimit.set_limit: sum_hist is not of type TH1D"
+        t_half_limit = self.get_t_half_limit(sum_hist, 
+                                             t_half_lo,
+                                             t_half_hi,
+                                             t_half_step,
+                                             required_delta_chi_squared)
+        self._limit = t_half_limit
+        print "SetLimit.set_limit: set limit at " + str(self._limit) + " yr"
+        raw_input("RETURN to continue...")
+        signal_isotope = self._signal.get_isotope()
+        signal_isotope.set_half_life(self._limit)
+        signal_isotope.set_counts(self._livetime)
+        self._signal.scale_histogram(signal_isotope.get_counts())
+        signal_hist = self._signal.get_histogram()
+        signal_hist.SetDirectory(0)
+        assert (type(signal_hist) is TH1D),\
+            "SetLimit.set_limit: signal_hist is not of type TH1D"
+        # Format half life string
+        if (int(self._limit/1.0e23) > 0):
+            half_life_string = str(int(((self._limit/1.0e24)*100.0)+0.5)/100.0) 
+            half_life_string += "*10^{24} y"
+        elif (int(self._limit/1.0e20) > 0):
+            half_life_string = str(int(((self._limit/1.0e21)*100.0)+0.5)/100.0) 
+            half_life_string += "*10^{21} y"
+        signal_hist.SetTitle(self._signal._label + " - " + half_life_string)
+        self.set_signal_hist(signal_hist)
+        sum_hist = sum_hist + signal_hist
+        sum_hist.SetTitle("Sum, " + self._signal._label + "-" + \
+                              str(int(self._limit/1.0e24)) + " 10^{24}yr")
+        self.set_sum_hist(sum_hist)
     def set_signal_hist(self, signal_hist):
         """ Set signal_hist as class member, format.
 
@@ -298,9 +303,11 @@ class SetLimit(object):
         c1.Print(image_name)
         first_nonzero_bin = delta_chi_squared_hist.FindFirstBinAbove(0.0)
         return delta_chi_squared_hist.GetBinContent(first_nonzero_bin)
-    def get_delta_chi_squared_t_half(self, data_hist,
-                                   inner_t_half_hi="default",
-                                   inner_t_half_step="default"):
+    def get_t_half_limit(self, data_hist,
+                         inner_t_half_lo="default",
+                         inner_t_half_hi="default",
+                         inner_t_half_step="default",
+                         required_delta_chi_squared="default"):
         """ 
         :param data_hist: summed background plus scaled signal
         :type data_hist: TH1D
@@ -308,57 +315,99 @@ class SetLimit(object):
         :type inner_t_half_hi: float
         :param inner_t_half_step: inner t_half step
         :type inner_t_half_step: float
-        :returns: delta chi squared y-intercept (i.e. at 0 meV)
+        :returns: t_half at limit
         :rtype: float
         """
-        inner_t_half_lo = defaults.ll_analysis.get("inner_t_half_lo")
-        assert (inner_t_half_lo == 0.0),\
-            "SetLimit.get_delta_chi_squared_t_half: error inner_t_half_lo != 0.0"
+        if (inner_t_half_lo == "default"):
+            inner_t_half_lo = defaults.ll_analysis.get("inner_t_half_lo")
+        assert (inner_t_half_lo != 0.0),\
+            "SetLimit.get_t_half_limit: error inner_t_half_lo == 0.0"
         if (inner_t_half_hi == "default"):
             inner_t_half_hi = defaults.ll_analysis.get("inner_t_half_hi")
         if (inner_t_half_step == "default"):
             inner_t_half_step = defaults.ll_analysis.get("inner_t_half_step")
+        if (required_delta_chi_squared == "default"):
+            required_delta_chi_squared = defaults.ll_analysis.get\
+                ("delta_chi_squared")
         # Book histograms
         n_bins = int((inner_t_half_hi-inner_t_half_lo) / inner_t_half_step)
-        label = "Log-likelihood (T_{1/2}) " + self._signal._label
-        ll_hist = TH1D(label, label, n_bins, inner_t_half_lo, inner_t_half_hi)
+        label = "LL (T_{1/2}) " + self._signal._label
+        ll_hist = TH1D(label, label, (n_bins+1), inner_t_half_lo,
+                       inner_t_half_hi)
         label = "#Delta#chi^{2} (T_{1/2}) " + self._signal._label
-        delta_chi_squared_hist = TH1D(label, label, n_bins, 
-                                      inner_t_half_lo, inner_t_half_hi) 
+        delta_chi_squared_hist = TH1D(label, label, (n_bins+1), 
+                                      inner_t_half_lo, inner_t_half_hi)
+        assert (ll_hist.GetNbinsX() == delta_chi_squared_hist.GetNbinsX()),\
+            "SetLimit.get_t_half_limit: error - number of bins mismatch"\
+            " --> ll_hist: " + str(ll_hist.GetNbinsX()) + " "\
+            "delta_chi_squared_hist: " + str(delta_chi_squared_hist.GetNbinsX())
+        ll_axis = ll_hist.GetXaxis()
+        delta_chi_axis = delta_chi_squared_hist.GetXaxis()
+        bins = ll_axis.GetNbins()
+        new_bins = []
+        for bin_ in range(1, bins+1):
+            t_half = ll_axis.GetBinLowEdge(bin_)
+            new_bins.append(1.0/t_half)
+        new_bins.sort()
+        new_bins_array = array.array("d", new_bins)
+        ll_axis.Set(len(new_bins_array)-1, new_bins_array)
+        delta_chi_axis.Set(len(new_bins_array)-1, new_bins_array)
+        assert (ll_hist.GetNbinsX() == delta_chi_squared_hist.GetNbinsX()),\
+            "SetLimit.get_t_half_limit: error - number of bins mismatch"\
+            " --> ll_hist: " + str(ll_hist.GetNbinsX()) + " "\
+            "delta_chi_squared_hist: " + str(delta_chi_squared_hist.GetNbinsX())
+        #assert (ll_hist.GetBinWidth(1) == inner_t_half_step),\
+        #    "SetLimit.get_t_half_limit: error - wrong bin width\n"\
+        #    " --> bin width = " + str(ll_hist.GetBinWidth(1)/1.0e23)\
+        #    + "e23 not " + str(inner_t_half_step/1.0e23) + "e23"
+        #assert (delta_chi_squared_hist.GetBinWidth(1) == inner_t_half_step),\
+        #    "SetLimit.get_t_half_limit: error - wrong bin width"\
+        #    " --> bin width = " + str(delta_chi_squared_hist.GetBinWidth(1)/1.0e23)\
+        #    + "e23 not " + str(inner_t_half_step/1.0e23) + "e23"
+        #assert (positive_delta_chi_hist.GetBinWidth(1) == inner_t_half_step),\
+        #    "SetLimit.get_t_half_limit: error - wrong bin width"\
+        #    " --> bin width = " + str(positive_delta_chi_hist.GetBinWidth(1)/1.0e23)\
+        #    + "e23 not " + str(inner_t_half_step/1.0e23) + "e23"
         # Loop over t_half values
         for t_half in my_range(inner_t_half_lo, 
                                inner_t_half_hi, 
                                inner_t_half_step):
-            hist_label = self._signal._label + "-reco_pos"
-            livetime = defaults.ll_analysis.get("livetime") 
-            self._signal.scale_by_t_half(t_half, hist_label, livetime)
-            signal_hist = self._signal.get_histogram(hist_label)
+            #hist_label = self._signal._label + "-reco_pos"
+            signal_isotope = self._signal.get_isotope()
+            signal_isotope.set_half_life(t_half)
+            signal_isotope.set_counts(self._livetime)
+            self._signal.scale_histogram(signal_isotope.get_counts())
+            signal_hist = self._signal.get_histogram()
             mc_hist = self._sum_background_hist + signal_hist
             assert (type(mc_hist) == TH1D),\
-                "SetLimit.get_delta_chi_squared_t_half: "\
+                "SetLimit.get_t_half_limit: "\
                 "error mc_hist not type TH1D"
             assert (mc_hist.Integral() > 0.0),\
-                "SetLimit.get_delta_chi_squared_t_half: "\
+                "SetLimit.get_t_half_limit: "\
                 "error mc_hist contains no events"
             assert (type(data_hist) == TH1D),\
-                "SetLimit.get_delta_chi_squared_t_half: "\
+                "SetLimit.get_t_half_limit: "\
                 "error data_hist not type TH1D"
             assert (data_hist.Integral() > 0.0),\
-                "SetLimit.get_delta_chi_squared_t_half: "\
+                "SetLimit.get_t_half_limit: "\
                 "error data_hist contains no events"
             # From histograms get summed delta log-likelihood
             summed_ll = statistics.sum_ll(data_hist, mc_hist)
             # Hack to remove binning errors
-            t_half_shifted = t_half * (1+(inner_t_half_step/0.1))
-            ll_hist.Fill(t_half_shifted, summed_ll)
+            t_half_shifted = t_half + (inner_t_half_step*0.1)
+            ll_hist.Fill(1.0/t_half_shifted, summed_ll)
         # Delta log likelihood
-        offset = ll_hist.GetMinimum()
-        for bin_ in range(1, ll_hist.GetNbinsX()+1):
+        y_offset = ll_hist.GetMinimum()
+        for bin_ in range(1, int(ll_hist.GetEntries())+1):
             log_likelihood = ll_hist.GetBinContent(bin_)
-            delta_ll = log_likelihood - offset
-            delta_chi_squared_hist.SetBinContent(bin_, 2.0*delta_ll)
-        c1 = TCanvas("#Delta#chi^{2}", "#Delta#chi^{2} (m_{#beta#beta)",
-                     750, 600)
+            delta_chi_squared = (log_likelihood-y_offset)
+            delta_chi_squared_hist.SetBinContent(bin_, delta_chi_squared)
+        assert (ll_hist.GetEntries() == delta_chi_squared_hist.GetEntries()),\
+            "SetLimit.get_t_half_limit: error - number of entries mismatch"\
+            " --> ll_hist: " + str(ll_hist.GetEntries()) + " "\
+            "delta_chi_squared_hist: " + str(delta_chi_squared_hist.GetEntries())
+        c1 = TCanvas("#Delta#chi^{2}", "#Delta#chi^{2} (m_{#beta#beta})",
+                     800, 600)
         c1.cd()
         delta_chi_squared_hist.SetMarkerColor(9)
         delta_chi_squared_hist.SetMarkerStyle(7)
@@ -366,12 +415,22 @@ class SetLimit(object):
         delta_chi_squared_hist.Draw("p")
         delta_chi_squared_hist.SetXTitle("T_{1/2}")
         delta_chi_squared_hist.SetYTitle("#Delta#chi^{2}")
-        image_name = data_hist.GetTitle() + "_delta_chi_squared_t_half_hist.png"
-        image_name = image_name.replace(",","")
+        image_name = signal_hist.GetName() + "_delta_chi_squared_vs_t_half_hist.png"
         image_name = image_name.replace(" ","_")
+        image_name = image_name.replace("(","_")
+        image_name = image_name.replace(") ","_")
         c1.Print(image_name)
-        first_nonzero_bin = delta_chi_squared_hist.FindFirstBinAbove(0.0)
-        return delta_chi_squared_hist.GetBinContent(first_nonzero_bin)
+        first_bin_above = delta_chi_squared_hist.FindFirstBinAbove(2.71)
+        try:
+            assert (first_bin_above != -1),\
+                "cannot set limit, no bin content above 2.71"
+        except AssertionError as detail:
+            print "SetLimit.get_t_half_limit: error -", detail
+            raise
+        raw_input("RETURN to continue...")
+        return 1.0/delta_chi_squared_hist.GetBinLowEdge(first_bin_above)
+    
+    
                 
 def log_likelihood_half_life(data_hist,
                              sum_background_hist,
@@ -492,19 +551,6 @@ if __name__ == "__main__":
 
     # Redefine bins for mass histogram
     """
-    axis = ll_hist_mass.GetXaxis()
-    bins = axis.GetNbins()
-    new_bins = [0.0]
-    for bin_ in range(2, bins+1):
-        t_half = axis.GetBinLowEdge(bin_)
-        print t_half
-        new_bins.append(te_converter.half_life_to_mass(t_half))
-    new_bins.sort()
-    print new_bins
-    new_bins_array = array.array("d", new_bins)
-    print new_bins_array
-    print len(new_bins_array)-1
-    axis.Set(len(new_bins_array)-1, new_bins_array)
 
     axis = delta_ll_hist_mass.GetXaxis()
     bins = axis.GetNbins()

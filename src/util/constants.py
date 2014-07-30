@@ -51,10 +51,11 @@ rois = {
 ## Relating to any Isotope ##
 
 ### Mass, weight and abundance ###
-atomic_weights = { # from http://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl
-                   # Unless otherwise stated
+atomic_weights = { # from http://physics.nist.gov/cgi-bin/Compositions/stand_al
+                   # one.pl unless otherwise stated
     "Te130" : 129.906229,  # Te Verification Report (TVR)
-    "U238" : 238.0507882
+    "Xe136" : 135.907219,
+    "U238" : 238.0507882,
     } # gmol^-1
 isotope_masses = { "Xe136" : 125.0 } # +/- 7 kg # Gando et al. 2012
 

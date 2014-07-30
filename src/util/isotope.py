@@ -518,7 +518,7 @@ class DoubleBetaIsotope(SNOPlusInternal):
         :type isotope_name: str
         """
         super(DoubleBetaIsotope, self).__init__(isotope_name)
-        self._two_nu = physics.DoubleBeta(isotope_name)
+        self._converter = physics.DoubleBeta(isotope_name)
     def set_mode(self, mode):
         """ Set mode for decay (as defined in decay0)
         
@@ -616,16 +616,16 @@ class DoubleBetaIsotope(SNOPlusInternal):
                             "SNOPlusInternal.set_half_life: error - string " \
                             + half_life + " not recognised"
             half_life = convert_to_years(half_life)   
-        t_half_min = self._two_nu.get_t_half_min()
-        t_half_max = self._two_nu.get_t_half_max()
+        t_half_min = self._converter.get_t_half_min()
+        t_half_max = self._converter.get_t_half_max()
         if (half_life < t_half_min):
             half_life = t_half_min
-            print "DoubleBetaIsotope.set_half_life: WARNING setting t_half = "\
-                "t_half_min"
+            print "DoubleBetaIsotope.set_half_life: WARNING", half_life, "too low"\
+                " --> setting to t_half_min =", t_half_min
         if (half_life > t_half_max):
             half_life = t_half_max
-            print "DoubleBetaIsotope.set_half_life: WARNING setting t_half = "\
-                "t_half_max"
+            print "DoubleBetaIsotope.set_half_life: WARNING", half_life, "too high"\
+                " --> setting to t_half_max =", t_half_max
         try:
             assert (t_half_min <= half_life <= t_half_max),\
                 "half life does not fall within the accepted range"
@@ -647,7 +647,7 @@ class ZeroNu(DoubleBetaIsotope):
         :type isotope_name: str
         """
         super(ZeroNu, self).__init__(isotope_name)
-        self._zero_nu = physics.ZeroNuConverter(self._name)
+        self._converter = physics.ZeroNuConverter(self._name)
         self.set_mode(1)
         self._effective_mass = None
     def get_zero_nu(self):
@@ -668,22 +668,24 @@ class ZeroNu(DoubleBetaIsotope):
         assert (self.get_mode() == 1), \
             "ZeroNu.set_effective_mass: error - invalid mode\n"\
             " --> ZeroNu class is only valid for mode=1!"
-        effective_mass_min = self._zero_nu.get_mass_min()
-        effective_mass_max = self._zero_nu.get_mass_max()
+        effective_mass_min = self._converter.get_mass_min()
+        effective_mass_max = self._converter.get_mass_max()
         if (effective_mass < effective_mass_min):
             effective_mass = effective_mass_min
+            print "ZeroNu.set_effective_mass: WARNING", effective_mass, "too low"\
+                " --> setting to effective_mass_min =", effective_mass_min
             print "ZeroNu.set_effective_mass: WARNING setting effective_mass"\
                 " = effective_mass_min"
         if (effective_mass > effective_mass_max):
             effective_mass = effective_mass_max
-            print "ZeroNu.set_effective_mass: WARNING setting effective_mass"\
-                " = effective_mass_max"
+            print "ZeroNu.set_effective_mass: WARNING", effictive_mass, "too low"\
+                " --> setting to effective_mass_max =", effective_mass_max
         try:
             assert (effective_mass_min <= effective_mass <= effective_mass_max),\
                 "half life does not fall within the accepted range"
         except AssertionError as detail:
             print "ZeroNu.set_effective_mass: ERROR", detail
-            print " --> cannont calculate decays"
+            print " --> cannot calculate decays"
             raise
         self._effective_mass = effective_mass
     def get_effective_mass(self):
