@@ -29,7 +29,7 @@ class Reconstructed(WriteSpectrum):
     RAT generated Root file. Generates a histogram with Gaussian smearing, 
     which is then saved to a new Root file.
     """
-    def __init__(self, path, t_half):
+    def __init__(self, path, t_half=None):
         """ Initialises the class, extracts information from filename """
         super(Reconstructed, self).__init__(path, t_half)
         if (self._label != None): # has been set

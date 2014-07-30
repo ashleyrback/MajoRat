@@ -21,24 +21,18 @@ class DoubleBeta(object):
     """ Base class designed as a utility to handle an isotope's double beta
     decay properties, e.g. lifetime.
     """
-    def __init__(self, isotope_name="Te130",
-                 t_half_min_scaling=1.0e-6,  # Assumed lower limit 10^-6 * 2nu
-                 t_half_max_scaling=1.0e15): # Assumed upper limit 10^15 * 2nu
+    def __init__(self, isotope_name="Te130"):
         """ Initialised for isotope name supplied (Te130 by default), with
         some useful nuclear factors defined.
         
         :param isotope_name: name of isotope
         :type isotope_name: float
-        :param t_half_min_scaling: scaling factor for lower limit on t_half
-        :type t_half_min_scaling: float
-        :param t_half_max_scaling: scaling factor for upper limit on t_half
-        :type t_half_max_scaling: float
         """
         self._phase_space = constants.phase_spaces.get(isotope_name).get("2nu")
         self._matrix_element = constants.matrix_elements.get(isotope_name).\
             get("2nu")
-        self._t_half_min = self.get_half_life() * t_half_min_scaling
-        self._t_half_max = self.get_half_life() * t_half_max_scaling
+        self._t_half_min = self.get_half_life() * 1.0e-6
+        self._t_half_max = self.get_half_life() * 1.0e12
     def get_half_life(self):
         """ 
         :returns: SM double beta decay half life (years)
@@ -63,17 +57,13 @@ class ZeroNuConverter(object):
     different isotope properties, e.g. converting from lifetime to 
     effective double beta neutrino mass, or vice versa.
     """
-    def __init__(self, isotope_name="Te130",
-                 t_half_min_scaling=1.0e-6,  # Assumed lower limit 10^-6 * 2nu
-                 t_half_max_scaling=1.0e15): # Assumed upper limit 10^15 * 2nu
+    def __init__(self, isotope_name="Te130"):
         """ Initialised for isotope name supplied (Te130 by default), with
         some useful nuclear factors and constants defined.
         """
-        two_nu = DoubleBeta(isotope_name,
-                            t_half_min_scaling,
-                            t_half_max_scaling)
-        self._t_half_min = two_nu.get_t_half_min()
-        self._t_half_max = two_nu.get_t_half_max()
+        two_nu = DoubleBeta(isotope_name)
+        self._mass_min = 0.1e-3 # 0.1 meV 
+        self._mass_max = 100.0 # 1000 meV
         self._phase_space = constants.phase_spaces.get(isotope_name).get("0nu")
         self._matrix_element = constants.matrix_elements.get(isotope_name).\
             get("0nu")
@@ -101,16 +91,16 @@ class ZeroNuConverter(object):
         return self._conversion_factor
     def get_t_half_min(self):
         """ Method to get minimum half life. Returns t_half_min """
-        return self._t_half_min
+        return self.mass_to_half_life(self._mass_max)
     def get_t_half_max(self):
         """ Method to get maximum half life. Returns t_half_max """
-        return self._t_half_max
+        return self.mass_to_half_life(self._mass_min)
     def get_mass_min(self):
         """ Method to get minimum effective mass. Returns mass_min """
-        return self.half_life_to_mass(self._t_half_max)
+        return self._mass_min
     def get_mass_max(self):
         """ Method to get maximum effective mass. Returns mass_max """
-        return self.half_life_to_mass(self._t_half_min)
+        return self._mass_max
     def half_life_to_mass(self, t_half):
         """ Method to convert half life (Yr) to OvBB effective mass. 
         Returns the effective neutrino mass in eV.

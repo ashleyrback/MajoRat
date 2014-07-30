@@ -58,12 +58,12 @@ ll_analysis = {
     "inner_mass_lo" : 0.0, # eV
     "inner_mass_hi" : 0.27, # eV
     "inner_mass_step" : 0.01, # eV
-    "outer_t_half_lo" : 0.0, # Yr
+    "outer_t_half_lo" : 0.5e24, # Yr
     "outer_t_half_hi" : 1.0e25, # Yr
-    "outer_t_half_test" : 0.5e24, # Yr
-    "inner_t_half_lo" : 0.0, # Yr
+    "outer_t_half_step" : 0.5e24, # Yr
+    "inner_t_half_lo" : 0.5e24, # Yr
     "inner_t_half_hi" : 1.0e25, # Yr
-    "inner_t_half_test" : 0.5e24 # Yr
+    "inner_t_half_step" : 0.5e24 # Yr
     }
 
 ## Other defaults ##
