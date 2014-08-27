@@ -3,3 +3,6 @@
 *.pyc
 *.png
 *.root
+
+# Directories
+src/generate/from_paper/
