@@ -266,6 +266,7 @@ class SNOPlusInternal(Isotope):
         :param apply_fv_cut: should FV cut be applied (default: True, yes)
         :type apply_fv_cut: bool
         :param fv_radius: radius of FV (default: get from defaults)
+        :type fv_radius: float
         """
         if (scintillator_cocktail == "default"):
             scintillator_cocktail = defaults.scintillator.get("cocktail")
@@ -289,8 +290,7 @@ class SNOPlusInternal(Isotope):
             component_mass = scintillator_mass * fraction
             masses_sum += component_mass
             scintillator_masses[component] = component_mass
-        assert (masses_sum == scintillator_mass), "SNOPlusInternal.__init__: "\
-            "error - sum of component masses != mass of scintillator"
+        error_utils.almost_equal(masses_sum, scintillator_mass, 1.0e-2)
         self._scintillator_masses = scintillator_masses
     def get_cocktail_component(self, component):
         """ Get the cocktail fraction of a scintillator component
@@ -580,7 +580,7 @@ class DoubleBetaIsotope(SNOPlusInternal):
         :returns: self._two_nu
         :rtype: physics.DoubleBeta object
         """
-        return self._two_nu
+        return self._converter
     def set_half_life(self, half_life="default", mode="default"):
         """ Overrides base class version to provide bounds checking on half 
         life. Note mode and half life have swapped order as there is more 
@@ -657,7 +657,7 @@ class ZeroNu(DoubleBetaIsotope):
         :returns: self._zero_nu
         :rtype: physics.ZeroNuConverter object
         """
-        return self._zero_nu
+        return self._converter
     def set_effective_mass(self, effective_mass):
         """ Sets the effective mass for a neutrinoless double beta decay
         (mode = 1 ONLY) double beta isotpe
