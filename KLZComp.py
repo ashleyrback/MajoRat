@@ -27,8 +27,8 @@ import argparse
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser\
-        (description=("KLZComp: tool for calculating confidence limits for "
-                      "different neutrinoless double beta decay signals in "
+        (description=("KLZComp: tool for calculating sensitivity to "
+                      "different neutrinoless double beta decay signals "
                       "compared to the combined KamLAND-Zen background."))
     parser.add_argument("-m", "--mode", help="spectral_plot mode or "
                         "limit_setting mode. Plots are also produced in "
@@ -64,7 +64,7 @@ if __name__ == "__main__":
 
     two_nu = Reconstructed\
         (os.environ.get("MAJORAT_DATA")+\
-             "/hist_RAT4-5_10k_decay0_2beta_Xe136_0_4_0-5_4-75.root")
+             "/hist_RAT4-5_100k_decay0_2beta_Xe136_0_4_0-5_4-75.root")
     Xe136_n5 = two_nu.get_isotope()
     Xe136_n5.set_number_nuclei(Xe136_mass)
     Xe136_n5.set_half_life("2.30e21 y")
@@ -74,8 +74,12 @@ if __name__ == "__main__":
     two_nu_hist.SetDirectory(0)
     two_nu_hist.SetLineWidth(2)
     two_nu_hist.SetLineColor(ROOT.kMagenta)
+    two_nu_hist.SetStats(0)
     stack.Add(two_nu_hist)
     legend.AddEntry(two_nu_hist, two_nu_hist.GetTitle(), "l")
+
+    assert(two_nu_hist.GetBinWidth(1) == total_background_hist.GetBinWidth(1)),\
+        "different bin widths"
 
     sum_background_hist = total_background_hist \
         + two_nu_hist
