@@ -6,3 +6,7 @@
 
 # Directories
 src/generate/from_paper/
+
+# Files
+src/generate/prod_hist_comparison.py
+src/generate/prod_macros_test.py
